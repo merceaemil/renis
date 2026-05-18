@@ -5,6 +5,7 @@ import { canManageGrades } from "@renis/core/permissions";
 import { prisma, Semester } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { institutionListWhere, resolveInstitutionId } from "@/lib/scope";
+import { paginatedQuery } from "@/lib/prisma-pagination";
 import { forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const subjectSchema = z.object({
@@ -36,13 +37,17 @@ export async function GET(req: NextRequest) {
   const scope = institutionListWhere(user, queryInstitutionId);
   if (scope === null) return withCors(forbidden());
 
-  const programmes = await prisma.programme.findMany({
-    where: { ...scope, active: true },
-    include: { subjects: { orderBy: [{ yearLevel: "asc" }, { code: "asc" }] } },
-    orderBy: { name: "asc" },
-  });
+  const result = await paginatedQuery(
+    req.nextUrl.searchParams,
+    prisma.programme,
+    {
+      where: { ...scope, active: true },
+      include: { subjects: { orderBy: [{ yearLevel: "asc" }, { code: "asc" }] } },
+      orderBy: { name: "asc" },
+    }
+  );
 
-  return withCors(NextResponse.json(programmes));
+  return withCors(NextResponse.json(result));
 }
 
 export async function POST(req: NextRequest) {

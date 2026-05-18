@@ -1,13 +1,18 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { canViewMinistryDashboard } from "@renis/core/permissions";
 import { AppShell } from "@/components/AppShell";
+import { Alert } from "@/components/ui/Alert";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { PaginatedTable } from "@/components/ui/PaginatedTable";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { apiFetch } from "@/lib/api";
 import { downloadWithAuth } from "@/lib/download";
+import { listApiUrl, normalizeListResponse } from "@/lib/list-response";
 
 type Anomaly = { code: string; message: string; studentId?: string };
 
@@ -18,6 +23,12 @@ type NationalStatRow = {
   semester: string;
   studentCount: number;
   sessionAverage: number | null;
+};
+
+type StatsSummary = {
+  submittedSessions: number;
+  totalStudents: number;
+  institutions: number;
 };
 
 type MinistryDiploma = {
@@ -47,14 +58,8 @@ type MinistrySession = {
 export default function MinistryPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const [sessions, setSessions] = useState<MinistrySession[]>([]);
-  const [diplomas, setDiplomas] = useState<MinistryDiploma[]>([]);
-  const [stats, setStats] = useState<{
-    summary: { submittedSessions: number; totalStudents: number; institutions: number };
-    rows: NationalStatRow[];
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statsSummary, setStatsSummary] = useState<StatsSummary | null>(null);
   const [sessionFilter, setSessionFilter] = useState("");
   const [sessionSort, setSessionSort] = useState<"date" | "institution">("date");
 
@@ -64,29 +69,94 @@ export default function MinistryPage() {
     }
   }, [session, router]);
 
-  useEffect(() => {
-    if (session?.accessToken) void load(session.accessToken);
-  }, [session?.accessToken]);
+  const fetchStatsPage = useCallback(
+    async (page: number, pageSize: number) => {
+      if (!session?.accessToken) throw new Error("Not signed in");
+      const res = await apiFetch(
+        listApiUrl("/api/ministry/statistics", page, pageSize),
+        { accessToken: session.accessToken }
+      );
+      if (!res.ok) throw new Error("Could not load statistics");
+      const data = await res.json();
+      setStatsSummary(data.summary as StatsSummary);
+      return {
+        items: data.rows as NationalStatRow[],
+        total: data.total as number,
+        page: data.page as number,
+        pageSize: data.pageSize as number,
+        totalPages: data.totalPages as number,
+      };
+    },
+    [session?.accessToken]
+  );
 
-  async function load(accessToken: string) {
-    setLoading(true);
-    setError(null);
-    try {
-      const [sRes, dRes, stRes] = await Promise.all([
-        apiFetch("/api/ministry/grade-sessions", { accessToken }),
-        apiFetch("/api/ministry/diplomas", { accessToken }),
-        apiFetch("/api/ministry/statistics", { accessToken }),
-      ]);
-      if (!sRes.ok) throw new Error("Could not load submitted sessions");
-      setSessions(await sRes.json());
-      if (dRes.ok) setDiplomas(await dRes.json());
-      if (stRes.ok) setStats(await stRes.json());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const fetchSessionsPage = useCallback(
+    async (page: number, pageSize: number) => {
+      if (!session?.accessToken) throw new Error("Not signed in");
+      const q = sessionFilter.trim();
+      const url = listApiUrl("/api/ministry/grade-sessions", page, pageSize, {
+        ...(q ? { q } : {}),
+        sort: sessionSort,
+      });
+      const res = await apiFetch(url, { accessToken: session.accessToken });
+      if (!res.ok) throw new Error("Could not load submitted sessions");
+      return normalizeListResponse<MinistrySession>(await res.json());
+    },
+    [session?.accessToken, sessionFilter, sessionSort]
+  );
+
+  const fetchDiplomasPage = useCallback(
+    async (page: number, pageSize: number) => {
+      if (!session?.accessToken) throw new Error("Not signed in");
+      const res = await apiFetch(
+        listApiUrl("/api/ministry/diplomas", page, pageSize),
+        { accessToken: session.accessToken }
+      );
+      if (!res.ok) throw new Error("Could not load diplomas");
+      return normalizeListResponse<MinistryDiploma>(await res.json());
+    },
+    [session?.accessToken]
+  );
+
+  const {
+    items: statRows,
+    loading: statsLoading,
+    page: statsPage,
+    setPage: setStatsPage,
+    pageSize: statsPageSize,
+    setPageSize: setStatsPageSize,
+    total: statsTotal,
+    totalPages: statsTotalPages,
+  } = usePaginatedList(fetchStatsPage, [session?.accessToken]);
+
+  const {
+    items: sessions,
+    loading: sessionsLoading,
+    page: sessionsPage,
+    setPage: setSessionsPage,
+    pageSize: sessionsPageSize,
+    setPageSize: setSessionsPageSize,
+    total: sessionsTotal,
+    totalPages: sessionsTotalPages,
+  } = usePaginatedList(fetchSessionsPage, [
+    session?.accessToken,
+    sessionFilter,
+    sessionSort,
+  ]);
+
+  const {
+    items: diplomas,
+    loading: diplomasLoading,
+    page: diplomasPage,
+    setPage: setDiplomasPage,
+    pageSize: diplomasPageSize,
+    setPageSize: setDiplomasPageSize,
+    total: diplomasTotal,
+    totalPages: diplomasTotalPages,
+  } = usePaginatedList(fetchDiplomasPage, [session?.accessToken]);
+
+  const initialLoading =
+    statsLoading && sessionsLoading && diplomasLoading && !statsSummary;
 
   async function exportGrades() {
     if (!session?.accessToken) return;
@@ -114,103 +184,93 @@ export default function MinistryPage() {
     }
   }
 
-  const filteredSessions = [...sessions]
-    .filter((s) => {
-      const q = sessionFilter.trim().toLowerCase();
-      if (!q) return true;
-      return (
-        s.institution.name.toLowerCase().includes(q) ||
-        s.programme.name.toLowerCase().includes(q) ||
-        s.institution.code.toLowerCase().includes(q)
-      );
-    })
-    .sort((a, b) => {
-      if (sessionSort === "institution") {
-        return a.institution.name.localeCompare(b.institution.name);
-      }
-      const da = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
-      const db = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
-      return db - da;
-    });
-
   return (
     <AppShell title="Ministry overview">
-      <p className="mb-4 text-sm text-slate-600 max-w-2xl">
-        Read-only national audit: submitted grades, diploma records, and aggregated
-        statistics (spec §4.2–4.4, §5.2–5.4).
-      </p>
+      <PageHeader
+        description="Read-only national audit: submitted grades, diploma records, and aggregated statistics."
+        actions={
+          <>
+            <button
+              type="button"
+              className="renis-btn-secondary"
+              onClick={() => void exportGrades()}
+            >
+              Export grades (CSV)
+            </button>
+            <button
+              type="button"
+              className="renis-btn-secondary"
+              onClick={() => void exportStatistics()}
+            >
+              Export statistics (CSV)
+            </button>
+          </>
+        }
+      />
 
-      <div className="mb-6 flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={() => void exportGrades()}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
-        >
-          Export all grades (CSV)
-        </button>
-        <button
-          type="button"
-          onClick={() => void exportStatistics()}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
-        >
-          Export national statistics (CSV)
-        </button>
-      </div>
-
-      {error && (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
+      {error ? (
+        <Alert variant="error" onDismiss={() => setError(null)}>
           {error}
-        </div>
-      )}
+        </Alert>
+      ) : null}
 
-      {loading ? (
-        <p className="text-slate-500">Loading…</p>
+      {initialLoading ? (
+        <p className="text-slate-500 py-8">Loading…</p>
       ) : (
         <>
-          {stats && (
-            <section className="mb-10">
-              <h2 className="text-lg font-medium text-slate-900 mb-3">
-                National statistics
-              </h2>
+          <section className="mb-10">
+            <h2 className="text-lg font-medium text-slate-900 mb-3">
+              National statistics
+            </h2>
+            {statsSummary ? (
               <p className="text-sm text-slate-600 mb-3">
-                {stats.summary.submittedSessions} submitted session(s) ·{" "}
-                {stats.summary.institutions} institution(s) ·{" "}
-                {stats.summary.totalStudents} student rows
+                {statsSummary.submittedSessions} submitted session(s) ·{" "}
+                {statsSummary.institutions} institution(s) ·{" "}
+                {statsSummary.totalStudents} student rows
               </p>
-              {stats.rows.length === 0 ? (
-                <p className="text-slate-500 text-sm">No data yet.</p>
-              ) : (
-                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-left">
-                      <tr>
-                        <th className="px-3 py-2">Institution</th>
-                        <th className="px-3 py-2">Programme</th>
-                        <th className="px-3 py-2">Year</th>
-                        <th className="px-3 py-2">Sem.</th>
-                        <th className="px-3 py-2">Students</th>
-                        <th className="px-3 py-2">Avg</th>
+            ) : null}
+            {statsLoading ? (
+              <p className="text-slate-500 text-sm">Loading statistics…</p>
+            ) : statsTotal === 0 ? (
+              <p className="text-slate-500 text-sm">No data yet.</p>
+            ) : (
+              <PaginatedTable
+                page={statsPage}
+                pageSize={statsPageSize}
+                total={statsTotal}
+                totalPages={statsTotalPages}
+                onPageChange={setStatsPage}
+                onPageSizeChange={setStatsPageSize}
+              >
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-slate-600">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Institution</th>
+                      <th className="px-3 py-2 font-medium">Programme</th>
+                      <th className="px-3 py-2 font-medium">Year</th>
+                      <th className="px-3 py-2 font-medium">Sem.</th>
+                      <th className="px-3 py-2 font-medium">Students</th>
+                      <th className="px-3 py-2 font-medium">Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {statRows.map((r, i) => (
+                      <tr key={i} className="border-t border-slate-100">
+                        <td className="px-3 py-2">{r.institutionName}</td>
+                        <td className="px-3 py-2">{r.programmeName}</td>
+                        <td className="px-3 py-2">{r.academicYear}</td>
+                        <td className="px-3 py-2">{r.semester}</td>
+                        <td className="px-3 py-2">{r.studentCount}</td>
+                        <td className="px-3 py-2">
+                          {r.sessionAverage ?? "—"}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {stats.rows.map((r, i) => (
-                        <tr key={i} className="border-t border-slate-100">
-                          <td className="px-3 py-2">{r.institutionName}</td>
-                          <td className="px-3 py-2">{r.programmeName}</td>
-                          <td className="px-3 py-2">{r.academicYear}</td>
-                          <td className="px-3 py-2">{r.semester}</td>
-                          <td className="px-3 py-2">{r.studentCount}</td>
-                          <td className="px-3 py-2">
-                            {r.sessionAverage ?? "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          )}
+                    ))}
+                  </tbody>
+                </table>
+              </PaginatedTable>
+            )}
+          </section>
 
           <h2 className="text-lg font-medium text-slate-900 mb-3">
             Submitted grade sessions
@@ -219,12 +279,12 @@ export default function MinistryPage() {
             <input
               type="search"
               placeholder="Filter institution or programme…"
-              className="rounded border border-slate-300 px-3 py-1.5"
+              className="renis-input max-w-xs"
               value={sessionFilter}
               onChange={(e) => setSessionFilter(e.target.value)}
             />
             <select
-              className="rounded border border-slate-300 px-3 py-1.5"
+              className="renis-input max-w-xs"
               value={sessionSort}
               onChange={(e) =>
                 setSessionSort(e.target.value as "date" | "institution")
@@ -234,80 +294,115 @@ export default function MinistryPage() {
               <option value="institution">Sort by institution</option>
             </select>
           </div>
-          {sessions.length === 0 ? (
-            <p className="text-slate-500 mb-10">No submitted grade sessions yet.</p>
+          {sessionsLoading ? (
+            <p className="text-slate-500 mb-10 text-sm">Loading sessions…</p>
+          ) : sessionsTotal === 0 ? (
+            <p className="text-slate-500 mb-10">
+              {sessionFilter.trim()
+                ? "No sessions match your filter."
+                : "No submitted grade sessions yet."}
+            </p>
           ) : (
-            <div className="space-y-4 mb-10">
-              {filteredSessions.map((s) => (
-                <article
-                  key={s.id}
-                  className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-                >
-                  <div className="flex flex-wrap justify-between gap-2 mb-2">
-                    <h3 className="font-medium text-slate-900">
-                      <Link
-                        href={`/ministry/grade-sessions/${s.id}`}
-                        className="text-renis-primary hover:underline"
+            <div className="mb-10">
+              <PaginatedTable
+                page={sessionsPage}
+                pageSize={sessionsPageSize}
+                total={sessionsTotal}
+                totalPages={sessionsTotalPages}
+                onPageChange={setSessionsPage}
+                onPageSizeChange={setSessionsPageSize}
+              >
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-slate-600">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Institution</th>
+                      <th className="px-4 py-3 font-medium">Programme</th>
+                      <th className="px-4 py-3 font-medium">Period</th>
+                      <th className="px-4 py-3 font-medium">Grades</th>
+                      <th className="px-4 py-3 font-medium">Anomalies</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sessions.map((s) => (
+                      <tr
+                        key={s.id}
+                        className="renis-table-row"
+                        onClick={() =>
+                          router.push(`/ministry/grade-sessions/${s.id}`)
+                        }
                       >
-                        {s.institution.name} — {s.programme.name}
-                      </Link>
-                    </h3>
-                    <span className="text-xs text-slate-500">
-                      {s.academicYear} · {s.semester} · {s.gradeCount} grades
-                      {s.submittedAt &&
-                        ` · ${new Date(s.submittedAt).toLocaleString()}`}
-                    </span>
-                  </div>
-                  {s.anomalies.length === 0 ? (
-                    <p className="text-sm text-green-700">
-                      No auto-detected anomalies.
-                    </p>
-                  ) : (
-                    <ul className="text-sm text-amber-800 list-disc list-inside space-y-1">
-                      {s.anomalies.slice(0, 3).map((a) => (
-                        <li key={`${s.id}-${a.code}-${a.studentId ?? a.message}`}>
-                          {a.message}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </article>
-              ))}
+                        <td className="px-4 py-3 font-medium text-slate-900">
+                          {s.institution.name}
+                        </td>
+                        <td className="px-4 py-3">{s.programme.name}</td>
+                        <td className="px-4 py-3 text-slate-600">
+                          {s.academicYear} · {s.semester}
+                          {s.submittedAt && (
+                            <span className="block text-xs text-slate-400">
+                              {new Date(s.submittedAt).toLocaleString()}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">{s.gradeCount}</td>
+                        <td className="px-4 py-3">
+                          {s.anomalies.length === 0 ? (
+                            <span className="text-green-700 text-xs">None</span>
+                          ) : (
+                            <span className="text-amber-800 text-xs">
+                              {s.anomalies.length} flagged
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </PaginatedTable>
             </div>
           )}
 
           <h2 className="text-lg font-medium text-slate-900 mb-3">
             Diplomas (submitted & published)
           </h2>
-          {diplomas.length === 0 ? (
+          {diplomasLoading ? (
+            <p className="text-slate-500 text-sm">Loading diplomas…</p>
+          ) : diplomasTotal === 0 ? (
             <p className="text-slate-500">No diplomas submitted yet.</p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            <PaginatedTable
+              page={diplomasPage}
+              pageSize={diplomasPageSize}
+              total={diplomasTotal}
+              totalPages={diplomasTotalPages}
+              onPageChange={setDiplomasPage}
+              onPageSizeChange={setDiplomasPageSize}
+            >
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-left">
+                <thead className="bg-slate-50 text-left text-slate-600">
                   <tr>
-                    <th className="px-4 py-3">Institution</th>
-                    <th className="px-4 py-3">Student</th>
-                    <th className="px-4 py-3">Diploma</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Submitted</th>
+                    <th className="px-4 py-3 font-medium">Institution</th>
+                    <th className="px-4 py-3 font-medium">Student</th>
+                    <th className="px-4 py-3 font-medium">Diploma</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Submitted</th>
                   </tr>
                 </thead>
                 <tbody>
                   {diplomas.map((d) => (
-                    <tr key={d.id} className="border-t border-slate-100">
+                    <tr
+                      key={d.id}
+                      className="renis-table-row"
+                      onClick={() => router.push(`/ministry/diplomas/${d.id}`)}
+                    >
                       <td className="px-4 py-3">{d.institution.name}</td>
                       <td className="px-4 py-3">{d.student.displayName}</td>
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/ministry/diplomas/${d.id}`}
-                          className="text-renis-primary hover:underline"
-                        >
-                          {d.title}
-                        </Link>
+                      <td className="px-4 py-3 font-medium text-slate-900">
+                        {d.title}
                       </td>
-                      <td className="px-4 py-3">{d.status}</td>
                       <td className="px-4 py-3">
+                        <StatusBadge status={d.status} />
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
                         {d.submittedAt
                           ? new Date(d.submittedAt).toLocaleString()
                           : "—"}
@@ -316,7 +411,7 @@ export default function MinistryPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </PaginatedTable>
           )}
         </>
       )}

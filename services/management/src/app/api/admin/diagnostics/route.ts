@@ -1,65 +1,18 @@
-import { NextResponse } from "next/server";
-import { canManageUsers } from "@renis/core/permissions";
-import { prisma } from "@renis/database";
+import { NextRequest, NextResponse } from "next/server";
+import { canManageInstitutions } from "@renis/core/permissions";
 import { corsOptions, withCors } from "@/lib/cors";
+import { gatherSystemDiagnostics } from "@/lib/system-diagnostics";
 import { forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 export async function OPTIONS() {
   return corsOptions();
 }
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   const user = await getApiUser(req);
   if (!user) return withCors(unauthorized());
-  if (!canManageUsers(user.role)) return withCors(forbidden());
+  if (!canManageInstitutions(user.role)) return withCors(forbidden());
 
-  const [
-    institutions,
-    users,
-    students,
-    gradeSessions,
-    diplomas,
-    auditLogs,
-    enrollments,
-    transcriptRecords,
-  ] = await Promise.all([
-    prisma.institution.count(),
-    prisma.user.count(),
-    prisma.student.count({ where: { active: true } }),
-    prisma.gradeSession.count(),
-    prisma.diploma.count(),
-    prisma.auditLog.count(),
-    prisma.programmeEnrollment.count({ where: { active: true } }),
-    prisma.transcriptRecord.count(),
-  ]);
-
-  let databaseOk = true;
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-  } catch {
-    databaseOk = false;
-  }
-
-  return withCors(
-    NextResponse.json({
-      version: process.env.npm_package_version ?? "0.1.0",
-      environment: process.env.NODE_ENV ?? "development",
-      database: { ok: databaseOk },
-      counts: {
-        institutions,
-        users,
-        students,
-        gradeSessions,
-        diplomas,
-        auditLogs,
-        enrollments,
-        transcriptRecords,
-      },
-      services: {
-        keycloakUrl: process.env.KEYCLOAK_URL ?? null,
-        managementPublicUrl: process.env.MANAGEMENT_PUBLIC_URL ?? null,
-        qrVerifyBaseUrl: `${(process.env.MANAGEMENT_PUBLIC_URL ?? "http://localhost:3000").replace(/\/$/, "")}/verify`,
-      },
-    })
-  );
+  const data = await gatherSystemDiagnostics();
+  return withCors(NextResponse.json(data));
 }

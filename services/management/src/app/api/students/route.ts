@@ -8,6 +8,7 @@ import {
   institutionListWhere,
   resolveInstitutionId,
 } from "@/lib/scope";
+import { paginatedQuery } from "@/lib/prisma-pagination";
 import { forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const createSchema = z.object({
@@ -32,12 +33,16 @@ export async function GET(req: NextRequest) {
   const scope = institutionListWhere(user, queryInstitutionId);
   if (scope === null) return withCors(forbidden());
 
-  const students = await prisma.student.findMany({
-    where: { ...scope, active: true },
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-  });
+  const result = await paginatedQuery(
+    req.nextUrl.searchParams,
+    prisma.student,
+    {
+      where: { ...scope, active: true },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    }
+  );
 
-  return withCors(NextResponse.json(students));
+  return withCors(NextResponse.json(result));
 }
 
 export async function POST(req: NextRequest) {

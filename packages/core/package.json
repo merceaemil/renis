@@ -11,7 +11,11 @@
     "./keycloak-url": "./src/keycloak-url.ts",
     "./roles": "./src/roles.ts",
     "./minio": "./src/minio.ts",
-    "./pdf-hash": "./src/pdf-hash.ts"
+    "./pdf-hash": "./src/pdf-hash.ts",
+    "./pagination": "./src/pagination.ts",
+    "./grade-classifications": "./src/grade-classifications.ts",
+    "./calculations": "./src/calculations.ts",
+    "./grades": "./src/grades.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.812.0",

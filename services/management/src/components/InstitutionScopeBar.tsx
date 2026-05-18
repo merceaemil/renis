@@ -4,6 +4,7 @@ import { UserRole } from "@renis/core/roles";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { normalizeListResponse } from "@/lib/list-response";
 
 const STORAGE_KEY = "renis-super-admin-institution-id";
 
@@ -29,10 +30,13 @@ export function InstitutionScopeBar({
 
   useEffect(() => {
     if (!isSuperAdmin || !session?.accessToken) return;
-    void apiFetch("/api/institutions", {
+    void apiFetch("/api/institutions?all=true", {
       accessToken: session.accessToken,
     }).then(async (res) => {
-      if (res.ok) setInstitutions(await res.json());
+      if (res.ok) {
+        const data = normalizeListResponse<Institution>(await res.json());
+        setInstitutions(data.items);
+      }
     });
   }, [isSuperAdmin, session?.accessToken]);
 

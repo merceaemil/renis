@@ -6,6 +6,7 @@ import { GradeStatus, prisma, Semester } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { institutionListWhere } from "@/lib/scope";
 import { UserRole } from "@renis/database";
+import { paginatedQuery } from "@/lib/prisma-pagination";
 import { forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const createSchema = z.object({
@@ -27,16 +28,20 @@ export async function GET(req: NextRequest) {
   const scope = institutionListWhere(user, queryInstitutionId);
   if (scope === null) return withCors(forbidden());
 
-  const sessions = await prisma.gradeSession.findMany({
-    where: scope,
-    include: {
-      programme: { select: { id: true, code: true, name: true } },
-      _count: { select: { grades: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const result = await paginatedQuery(
+    req.nextUrl.searchParams,
+    prisma.gradeSession,
+    {
+      where: scope,
+      include: {
+        programme: { select: { id: true, code: true, name: true } },
+        _count: { select: { grades: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }
+  );
 
-  return withCors(NextResponse.json(sessions));
+  return withCors(NextResponse.json(result));
 }
 
 export async function POST(req: NextRequest) {

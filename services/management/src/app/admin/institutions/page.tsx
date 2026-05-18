@@ -1,21 +1,28 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { canManageInstitutions } from "@renis/core/permissions";
 import { AppShell } from "@/components/AppShell";
+import { Alert } from "@/components/ui/Alert";
+import { Modal } from "@/components/ui/Modal";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { RowMenu } from "@/components/ui/RowMenu";
+import { PaginatedTable } from "@/components/ui/PaginatedTable";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { apiFetch } from "@/lib/api";
+import { listApiUrl, normalizeListResponse } from "@/lib/list-response";
 
 type Institution = { id: string; code: string; name: string; active: boolean };
 
 export default function InstitutionsPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const [list, setList] = useState<Institution[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [detailTarget, setDetailTarget] = useState<Institution | null>(null);
   const [form, setForm] = useState({ code: "", name: "" });
 
   useEffect(() => {
@@ -24,22 +31,31 @@ export default function InstitutionsPage() {
     }
   }, [session, router]);
 
-  useEffect(() => {
-    if (session?.accessToken) void load(session.accessToken);
-  }, [session?.accessToken]);
-
-  async function load(token: string) {
-    setLoading(true);
-    try {
-      const res = await apiFetch("/api/institutions", { accessToken: token });
+  const fetchPage = useCallback(
+    async (page: number, pageSize: number) => {
+      if (!session?.accessToken) throw new Error("Not signed in");
+      const res = await apiFetch(listApiUrl("/api/institutions", page, pageSize), {
+        accessToken: session.accessToken,
+      });
       if (!res.ok) throw new Error("Could not load institutions");
-      setList(await res.json());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error");
-    } finally {
-      setLoading(false);
-    }
-  }
+      return normalizeListResponse<Institution>(await res.json());
+    },
+    [session?.accessToken]
+  );
+
+  const {
+    items: list,
+    loading,
+    error: listError,
+    setError: setListError,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    total,
+    totalPages,
+    reload,
+  } = usePaginatedList(fetchPage, [session?.accessToken]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -55,88 +71,182 @@ export default function InstitutionsPage() {
       setError(data.error ?? "Create failed");
       return;
     }
+    setCreateOpen(false);
     setForm({ code: "", name: "" });
-    await load(session.accessToken);
+    await reload();
   }
 
   return (
     <AppShell title="Institutions">
-      <p className="text-sm text-slate-600 mb-6">
-        Phase 1 covers universities and higher education institutions recognised by
-        the Ministry.
-      </p>
+      <PageHeader
+        description="Phase 1 covers universities and higher education institutions recognised by the Ministry."
+        actions={
+          <button
+            type="button"
+            className="renis-btn-primary"
+            onClick={() => setCreateOpen(true)}
+          >
+            Add institution
+          </button>
+        }
+      />
 
-      <form
-        onSubmit={handleCreate}
-        className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm max-w-lg space-y-4"
+      {(error ?? listError) ? (
+        <Alert variant="error" onDismiss={() => { setError(null); setListError(null); }}>
+          {error ?? listError}
+        </Alert>
+      ) : null}
+
+      <Modal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Add institution"
+        footer={
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              className="renis-btn-secondary"
+              onClick={() => setCreateOpen(false)}
+            >
+              Cancel
+            </button>
+            <button type="submit" form="institution-create-form" className="renis-btn-primary">
+              Create
+            </button>
+          </div>
+        }
       >
-        <h2 className="font-medium text-slate-800">Add institution</h2>
-        <div>
-          <label className="block text-sm text-slate-600 mb-1">Code</label>
-          <input
-            required
-            value={form.code}
-            onChange={(e) => setForm({ ...form, code: e.target.value })}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            placeholder="UB"
-          />
-        </div>
-        <div>
-          <label className="block text-sm text-slate-600 mb-1">Name</label>
-          <input
-            required
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
-            placeholder="University of Burundi"
-          />
-        </div>
-        <button
-          type="submit"
-          className="rounded-lg bg-renis-primary px-4 py-2 text-sm text-white hover:opacity-90"
-        >
-          Create
-        </button>
-      </form>
+        <form id="institution-create-form" className="space-y-4" onSubmit={handleCreate}>
+          <label className="block text-sm">
+            <span className="text-slate-600">Code</span>
+            <input
+              required
+              value={form.code}
+              onChange={(e) => setForm({ ...form, code: e.target.value })}
+              className="renis-input mt-1"
+              placeholder="UB"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="text-slate-600">Name</span>
+            <input
+              required
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="renis-input mt-1"
+              placeholder="University of Burundi"
+            />
+          </label>
+        </form>
+      </Modal>
 
-      {error && (
-        <p className="mb-4 text-sm text-red-600" role="alert">
-          {error}
-        </p>
-      )}
+      <Modal
+        open={!!detailTarget}
+        onClose={() => setDetailTarget(null)}
+        title={detailTarget?.name ?? "Institution"}
+        description={detailTarget ? `Code: ${detailTarget.code}` : undefined}
+        footer={
+          detailTarget ? (
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="renis-btn-secondary"
+                onClick={() => setDetailTarget(null)}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="renis-btn-primary"
+                onClick={() =>
+                  router.push(`/admin/institutions/${detailTarget.id}/settings`)
+                }
+              >
+                Open settings
+              </button>
+            </div>
+          ) : null
+        }
+      >
+        {detailTarget ? (
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-slate-500">Code</dt>
+              <dd className="font-mono text-slate-900">{detailTarget.code}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Status</dt>
+              <dd>
+                <StatusBadge
+                  status={detailTarget.active ? "ACTIVE" : "INACTIVE"}
+                  label={detailTarget.active ? "Active" : "Inactive"}
+                />
+              </dd>
+            </div>
+          </dl>
+        ) : null}
+      </Modal>
 
       {loading ? (
-        <p className="text-slate-500">Loading…</p>
+        <p className="text-slate-500 py-8">Loading…</p>
+      ) : total === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
+          No institutions yet. Add one to get started.
+        </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <PaginatedTable
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        >
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-left">
+            <thead className="bg-slate-50 text-left text-slate-600">
               <tr>
                 <th className="px-4 py-3 font-medium">Code</th>
                 <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Active</th>
-                <th className="px-4 py-3 font-medium"></th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 w-12" />
               </tr>
             </thead>
             <tbody>
               {list.map((i) => (
-                <tr key={i.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3 font-mono">{i.code}</td>
-                  <td className="px-4 py-3">{i.name}</td>
-                  <td className="px-4 py-3">{i.active ? "Yes" : "No"}</td>
+                <tr
+                  key={i.id}
+                  className="renis-table-row"
+                  onClick={() => setDetailTarget(i)}
+                >
+                  <td className="px-4 py-3 font-mono text-xs">{i.code}</td>
+                  <td className="px-4 py-3 font-medium text-slate-900">{i.name}</td>
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/admin/institutions/${i.id}/settings`}
-                      className="text-renis-primary hover:underline text-sm"
-                    >
-                      Settings
-                    </Link>
+                    <StatusBadge
+                      status={i.active ? "ACTIVE" : "INACTIVE"}
+                      label={i.active ? "Active" : "Inactive"}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <RowMenu
+                      label={`Actions for ${i.code}`}
+                      items={[
+                        {
+                          label: "View details",
+                          onClick: () => setDetailTarget(i),
+                        },
+                        {
+                          label: "Settings",
+                          onClick: () =>
+                            router.push(`/admin/institutions/${i.id}/settings`),
+                        },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </PaginatedTable>
       )}
     </AppShell>
   );

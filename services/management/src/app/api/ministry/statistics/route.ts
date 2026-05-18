@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { canViewMinistryDashboard } from "@renis/core/permissions";
 import { corsOptions, withCors } from "@/lib/cors";
+import { paginateArray } from "@renis/core/pagination";
 import { buildNationalStatistics } from "@/lib/national-statistics";
 import { forbidden, getApiUser, unauthorized } from "@/lib/session";
 
@@ -13,15 +14,29 @@ export async function GET(req: NextRequest) {
   if (!user) return withCors(unauthorized());
   if (!canViewMinistryDashboard(user.role)) return withCors(forbidden());
 
-  const rows = await buildNationalStatistics();
+  const allRows = await buildNationalStatistics();
   const overall =
-    rows.length > 0
+    allRows.length > 0
       ? {
-          submittedSessions: rows.length,
-          totalStudents: rows.reduce((s, r) => s + r.studentCount, 0),
-          institutions: new Set(rows.map((r) => r.institutionCode)).size,
+          submittedSessions: allRows.length,
+          totalStudents: allRows.reduce((s, r) => s + r.studentCount, 0),
+          institutions: new Set(allRows.map((r) => r.institutionCode)).size,
         }
       : { submittedSessions: 0, totalStudents: 0, institutions: 0 };
 
-  return withCors(NextResponse.json({ summary: overall, rows }));
+  if (req.nextUrl.searchParams.get("all") === "true") {
+    return withCors(NextResponse.json({ summary: overall, rows: allRows }));
+  }
+
+  const paginated = paginateArray(allRows, req.nextUrl.searchParams);
+  return withCors(
+    NextResponse.json({
+      summary: overall,
+      rows: paginated.items,
+      total: paginated.total,
+      page: paginated.page,
+      pageSize: paginated.pageSize,
+      totalPages: paginated.totalPages,
+    })
+  );
 }

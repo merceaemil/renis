@@ -5,6 +5,7 @@ import { canManageDiplomas } from "@renis/core/permissions";
 import { DiplomaStatus, prisma } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { institutionListWhere, resolveInstitutionId } from "@/lib/scope";
+import { paginatedQuery } from "@/lib/prisma-pagination";
 import { forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const DIPLOMA_TYPES = ["BACHELOR", "MASTER", "DOCTORATE", "CERTIFICATE", "LICENCE"] as const;
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
   const scope = institutionListWhere(user, queryInstitutionId);
   if (scope === null) return withCors(forbidden());
 
-  const diplomas = await prisma.diploma.findMany({
+  const result = await paginatedQuery(req.nextUrl.searchParams, prisma.diploma, {
     where: scope,
     include: {
       student: {
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
   });
 
-  return withCors(NextResponse.json(diplomas));
+  return withCors(NextResponse.json(result));
 }
 
 export async function POST(req: NextRequest) {

@@ -9,3 +9,4 @@ export * from "./grade-classifications";
 export * from "./institution-assets";
 export * from "./minio";
 export * from "./pdf-hash";
+export * from "./pagination";

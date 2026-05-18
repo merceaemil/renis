@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { canViewAuditLog } from "@renis/core/permissions";
 import { prisma } from "@renis/database";
+import {
+  buildAuditLogWhere,
+  parseAuditLogFilters,
+} from "@/lib/audit-log-query";
 import { corsOptions, withCors } from "@/lib/cors";
+import { paginatedQuery } from "@/lib/prisma-pagination";
 import { forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 export async function OPTIONS() {
@@ -13,17 +18,17 @@ export async function GET(req: NextRequest) {
   if (!user) return withCors(unauthorized());
   if (!canViewAuditLog(user.role)) return withCors(forbidden());
 
-  const limit = Math.min(
-    200,
-    Math.max(1, Number(req.nextUrl.searchParams.get("limit") ?? 100))
+  const filters = parseAuditLogFilters(req.nextUrl.searchParams);
+  const where = buildAuditLogWhere(filters);
+
+  const result = await paginatedQuery(
+    req.nextUrl.searchParams,
+    prisma.auditLog,
+    {
+      where,
+      orderBy: { createdAt: "desc" },
+    }
   );
-  const action = req.nextUrl.searchParams.get("action")?.trim();
 
-  const logs = await prisma.auditLog.findMany({
-    where: action ? { action } : undefined,
-    orderBy: { createdAt: "desc" },
-    take: limit,
-  });
-
-  return withCors(NextResponse.json(logs));
+  return withCors(NextResponse.json(result));
 }

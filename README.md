@@ -24,6 +24,7 @@ cp .env.example .env
 docker compose up -d --build
 docker compose --profile tools build db-migrate
 docker compose --profile tools run --rm db-migrate
+docker compose --profile tools build db-seed
 docker compose --profile tools run --rm db-seed
 ```
 

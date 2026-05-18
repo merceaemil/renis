@@ -4,6 +4,7 @@ import { logAudit } from "@renis/core";
 import { canManageInstitutions } from "@renis/core/permissions";
 import { prisma, UserRole } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
+import { paginatedQuery } from "@/lib/prisma-pagination";
 import { forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const createInstitutionSchema = z.object({
@@ -20,11 +21,16 @@ export async function GET(req: NextRequest) {
   if (!user) return withCors(unauthorized());
 
   if (user.role === UserRole.SUPER_ADMIN) {
-    const list = await prisma.institution.findMany({
-      where: { active: true },
-      orderBy: { name: "asc" },
-    });
-    return withCors(NextResponse.json(list));
+    const includeInactive = req.nextUrl.searchParams.get("all") === "true";
+    const result = await paginatedQuery(
+      req.nextUrl.searchParams,
+      prisma.institution,
+      {
+        where: includeInactive ? undefined : { active: true },
+        orderBy: { name: "asc" },
+      }
+    );
+    return withCors(NextResponse.json(result));
   }
 
   if (user.institutionId) {

@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  buildPaginatedResult,
+  parsePaginationParams,
+} from "@renis/core/pagination";
 import { canViewMinistryDashboard } from "@renis/core/permissions";
 import { GradeStatus, prisma } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
@@ -14,29 +18,56 @@ export async function GET(req: NextRequest) {
   if (!user) return withCors(unauthorized());
   if (!canViewMinistryDashboard(user.role)) return withCors(forbidden());
 
-  const sessions = await prisma.gradeSession.findMany({
-    where: { status: GradeStatus.SUBMITTED },
-    include: {
-      institution: { select: { id: true, name: true, code: true } },
-      programme: { select: { id: true, code: true, name: true } },
-      grades: {
-        include: {
-          subject: true,
-          student: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              studentIdNumber: true,
+  const params = req.nextUrl.searchParams;
+  const q = params.get("q")?.trim();
+  const sort = params.get("sort");
+  const where = {
+    status: GradeStatus.SUBMITTED,
+    ...(q
+      ? {
+          OR: [
+            { institution: { name: { contains: q, mode: "insensitive" as const } } },
+            { institution: { code: { contains: q, mode: "insensitive" as const } } },
+            { programme: { name: { contains: q, mode: "insensitive" as const } } },
+            { programme: { code: { contains: q, mode: "insensitive" as const } } },
+          ],
+        }
+      : {}),
+  };
+  const { page, pageSize, skip, take } = parsePaginationParams(params);
+  const orderBy =
+    sort === "institution"
+      ? [{ institution: { name: "asc" as const } }, { submittedAt: "desc" as const }]
+      : { submittedAt: "desc" as const };
+
+  const [total, sessions] = await Promise.all([
+    prisma.gradeSession.count({ where }),
+    prisma.gradeSession.findMany({
+      where,
+      include: {
+        institution: { select: { id: true, name: true, code: true } },
+        programme: { select: { id: true, code: true, name: true } },
+        grades: {
+          include: {
+            subject: true,
+            student: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                studentIdNumber: true,
+              },
             },
           },
         },
       },
-    },
-    orderBy: { submittedAt: "desc" },
-  });
+      orderBy,
+      skip,
+      take,
+    }),
+  ]);
 
-  const payload = sessions.map((session) => {
+  const items = sessions.map((session) => {
     const rows = session.grades.map((g) => ({
       studentId: g.studentId,
       studentLabel: `${g.student.lastName}, ${g.student.firstName} (${g.student.studentIdNumber})`,
@@ -57,5 +88,7 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return withCors(NextResponse.json(payload));
+  return withCors(
+    NextResponse.json(buildPaginatedResult(items, total, page, pageSize))
+  );
 }

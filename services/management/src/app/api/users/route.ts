@@ -10,6 +10,7 @@ import {
 } from "@renis/core";
 import { prisma, UserRole, UserStatus } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
+import { paginatedQuery } from "@/lib/prisma-pagination";
 import { forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const createUserSchema = z.object({
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
       ? {}
       : { institutionId: user.institutionId ?? undefined };
 
-  const users = await prisma.user.findMany({
+  const result = await paginatedQuery(req.nextUrl.searchParams, prisma.user, {
     where,
     include: {
       institution: { select: { id: true, name: true, code: true } },
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
   });
 
-  return withCors(NextResponse.json(users));
+  return withCors(NextResponse.json(result));
 }
 
 export async function POST(req: NextRequest) {

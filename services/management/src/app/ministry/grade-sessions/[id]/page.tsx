@@ -6,8 +6,33 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { canViewMinistryDashboard } from "@renis/core/permissions";
 import { AppShell } from "@/components/AppShell";
+import { Alert } from "@/components/ui/Alert";
+import { Modal } from "@/components/ui/Modal";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { RowMenu } from "@/components/ui/RowMenu";
+import { Pagination } from "@/components/ui/Pagination";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiFetch } from "@/lib/api";
 import { downloadWithAuth } from "@/lib/download";
+
+type Subject = { id: string; code: string; name: string };
+type StudentRow = {
+  student: {
+    id: string;
+    studentIdNumber: string;
+    firstName: string;
+    lastName: string;
+  };
+  grades: { subjectId: string; gradeObtained: number | null }[];
+  semesterAverage: number | null;
+};
+
+type SessionStats = {
+  studentCount: number;
+  subjectCount: number;
+  completionPercent?: number;
+};
 
 type SessionDetail = {
   session: {
@@ -16,15 +41,21 @@ type SessionDetail = {
     programme: { name: string; code: string };
     institution: { name: string; code: string };
   };
-  subjects: { id: string; code: string; name: string }[];
-  students: {
-    student: { lastName: string; firstName: string };
-    grades: { gradeObtained: number | null }[];
-    semesterAverage: number | null;
-  }[];
+  subjects: Subject[];
+  students: StudentRow[];
+  stats?: SessionStats;
   anomalies: { code: string; message: string }[];
   ministryFlags: { at: string; actorEmail: string | null; message?: string }[];
 };
+
+function isInteractiveTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest("button,a,[role=menu]"));
+}
+
+function studentLabel(row: StudentRow) {
+  return `${row.student.lastName}, ${row.student.firstName}`;
+}
 
 export default function MinistrySessionPage() {
   const { id } = useParams<{ id: string }>();
@@ -33,8 +64,15 @@ export default function MinistrySessionPage() {
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const [flagOpen, setFlagOpen] = useState(false);
   const [flagMessage, setFlagMessage] = useState("");
   const [flagging, setFlagging] = useState(false);
+
+  const [studentSearch, setStudentSearch] = useState("");
+  const [flagsOpen, setFlagsOpen] = useState(true);
+  const [studentDetail, setStudentDetail] = useState<StudentRow | null>(null);
 
   const load = useCallback(
     async (accessToken: string) => {
@@ -81,6 +119,8 @@ export default function MinistrySessionPage() {
       return;
     }
     setFlagMessage("");
+    setFlagOpen(false);
+    setMessage("Flag sent to the institution.");
     await load(session.accessToken);
   }
 
@@ -97,10 +137,32 @@ export default function MinistrySessionPage() {
     }
   }
 
+  const filteredStudents =
+    detail?.students.filter((row) => {
+      const q = studentSearch.trim().toLowerCase();
+      if (!q) return true;
+      const s = row.student;
+      return (
+        s.firstName.toLowerCase().includes(q) ||
+        s.lastName.toLowerCase().includes(q) ||
+        s.studentIdNumber.toLowerCase().includes(q)
+      );
+    }) ?? [];
+
+  const {
+    pageItems: pagedStudents,
+    page: studentPage,
+    setPage: setStudentPage,
+    pageSize: studentPageSize,
+    setPageSize: setStudentPageSize,
+    total: filteredTotal,
+    totalPages: studentTotalPages,
+  } = useClientPagination(filteredStudents, [studentSearch]);
+
   if (loading) {
     return (
       <AppShell title="Session audit">
-        <p className="text-slate-500">Loading…</p>
+        <p className="text-slate-500 py-8">Loading…</p>
       </AppShell>
     );
   }
@@ -108,127 +170,287 @@ export default function MinistrySessionPage() {
   if (!detail) {
     return (
       <AppShell title="Session audit">
-        <p className="text-red-700">{error ?? "Not found"}</p>
-        <Link href="/ministry" className="text-renis-primary text-sm">
+        <Alert variant="error">{error ?? "Session not found"}</Alert>
+        <Link href="/ministry" className="text-sm text-renis-primary hover:underline">
           ← Ministry overview
         </Link>
       </AppShell>
     );
   }
 
+  const { session: gradeSession, stats, anomalies, ministryFlags } = detail;
+  const title = `${gradeSession.institution.name} — ${gradeSession.programme.name}`;
+
   return (
-    <AppShell
-      title={`${detail.session.institution.name} — ${detail.session.programme.name}`}
-    >
-      <div className="mb-4 flex flex-wrap gap-3 text-sm">
-        <Link href="/ministry" className="text-renis-primary hover:underline">
+    <AppShell title={title}>
+      <div className="mb-4">
+        <Link href="/ministry" className="text-sm text-renis-primary hover:underline">
           ← Ministry overview
         </Link>
-        <button
-          type="button"
-          onClick={() => void exportNational()}
-          className="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-50"
-        >
-          Export all sessions (CSV)
-        </button>
       </div>
 
-      <p className="mb-4 text-sm text-slate-600">
-        {detail.session.academicYear} · {detail.session.semester} · read-only
-        audit (spec §4.2 step 4)
-      </p>
+      <PageHeader
+        description={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <StatusBadge status="SUBMITTED" label="Submitted" />
+            <span>
+              {gradeSession.academicYear} · {gradeSession.semester} · read-only audit
+            </span>
+            {stats ? (
+              <span className="text-slate-500">
+                · {stats.studentCount} students · {stats.subjectCount} subjects
+              </span>
+            ) : null}
+          </span>
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              className="renis-btn-secondary"
+              onClick={() => void exportNational()}
+            >
+              Export all sessions (CSV)
+            </button>
+            <button
+              type="button"
+              className="renis-btn-primary"
+              onClick={() => setFlagOpen(true)}
+            >
+              Flag anomaly
+            </button>
+          </>
+        }
+      />
 
-      {error && (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
-          {error}
-        </div>
-      )}
+      {error ? <Alert variant="error" onDismiss={() => setError(null)}>{error}</Alert> : null}
+      {message ? (
+        <Alert variant="success" onDismiss={() => setMessage(null)}>
+          {message}
+        </Alert>
+      ) : null}
 
-      {detail.anomalies.length > 0 && (
-        <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm">
-          <p className="font-medium text-amber-900 mb-2">Auto-detected anomalies</p>
-          <ul className="list-disc list-inside text-amber-800">
-            {detail.anomalies.map((a) => (
-              <li key={`${a.code}-${a.studentId ?? a.message}`}>{a.message}</li>
+      {anomalies.length > 0 ? (
+        <Alert variant="warning">
+          <p className="font-medium mb-2">Auto-detected anomalies ({anomalies.length})</p>
+          <ul className="list-disc list-inside space-y-1">
+            {anomalies.map((a) => (
+              <li key={`${a.code}-${a.message}`}>{a.message}</li>
             ))}
           </ul>
-        </div>
+        </Alert>
+      ) : (
+        <Alert variant="info">No auto-detected anomalies in this session.</Alert>
       )}
 
-      <form
-        onSubmit={submitFlag}
-        className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+      <Modal
+        open={flagOpen}
+        onClose={() => setFlagOpen(false)}
+        title="Flag anomaly"
+        description="Describe the issue for the institution (minimum 10 characters)."
+        footer={
+          <div className="flex justify-end gap-2">
+            <button type="button" className="renis-btn-secondary" onClick={() => setFlagOpen(false)}>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="ministry-flag-form"
+              disabled={flagging || flagMessage.trim().length < 10}
+              className="renis-btn-primary disabled:opacity-50"
+            >
+              {flagging ? "Sending…" : "Send flag"}
+            </button>
+          </div>
+        }
       >
-        <p className="text-sm font-medium text-slate-800 mb-2">Flag anomaly</p>
-        <textarea
-          required
-          minLength={10}
-          rows={3}
-          className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
-          placeholder="Describe the issue for the institution (min. 10 characters)…"
-          value={flagMessage}
-          onChange={(e) => setFlagMessage(e.target.value)}
-        />
-        <button
-          type="submit"
-          disabled={flagging}
-          className="mt-2 rounded-lg bg-renis-primary px-4 py-2 text-sm text-white hover:opacity-90 disabled:opacity-50"
-        >
-          {flagging ? "Sending…" : "Send flag to institution"}
-        </button>
-      </form>
+        <form id="ministry-flag-form" onSubmit={submitFlag}>
+          <textarea
+            required
+            minLength={10}
+            rows={4}
+            className="renis-input w-full"
+            placeholder="Describe the issue…"
+            value={flagMessage}
+            onChange={(e) => setFlagMessage(e.target.value)}
+          />
+        </form>
+      </Modal>
 
-      {detail.ministryFlags.length > 0 && (
-        <div className="mb-6 text-sm">
-          <p className="font-medium text-slate-800 mb-2">Previous ministry flags</p>
-          <ul className="space-y-2">
-            {detail.ministryFlags.map((f, i) => (
-              <li
-                key={i}
-                className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
-              >
-                <span className="text-xs text-slate-500">
-                  {new Date(f.at).toLocaleString()} — {f.actorEmail ?? "—"}
-                </span>
-                <p className="mt-1">{f.message}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <Modal
+        open={!!studentDetail}
+        onClose={() => setStudentDetail(null)}
+        title={studentDetail ? studentLabel(studentDetail) : "Student"}
+        description={studentDetail?.student.studentIdNumber}
+        size="lg"
+        footer={
+          <button type="button" className="renis-btn-secondary" onClick={() => setStudentDetail(null)}>
+            Close
+          </button>
+        }
+      >
+        {studentDetail ? (
+          <div className="space-y-4">
+            <p className="text-sm">
+              <span className="text-slate-500">Semester average:</span>{" "}
+              <strong className="tabular-nums">
+                {studentDetail.semesterAverage !== null
+                  ? studentDetail.semesterAverage.toFixed(2)
+                  : "—"}
+              </strong>
+            </p>
+            <table className="w-full text-sm">
+              <thead className="text-left text-slate-500 border-b border-slate-100">
+                <tr>
+                  <th className="py-2 pr-3">Subject</th>
+                  <th className="py-2 text-right">Grade</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detail.subjects.map((sub) => {
+                  const g = studentDetail.grades.find((x) => x.subjectId === sub.id);
+                  return (
+                    <tr key={sub.id} className="border-t border-slate-50">
+                      <td className="py-2 pr-3">
+                        <span className="font-mono text-xs text-slate-500">{sub.code}</span>{" "}
+                        {sub.name}
+                      </td>
+                      <td className="py-2 text-right font-medium tabular-nums">
+                        {g?.gradeObtained ?? "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </Modal>
+
+      {ministryFlags.length > 0 && (
+        <section className="mb-4 rounded-xl border border-slate-200 bg-white shadow-sm">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
+            onClick={() => setFlagsOpen((o) => !o)}
+          >
+            Previous ministry flags ({ministryFlags.length})
+            <span className="text-slate-400">{flagsOpen ? "▾" : "▸"}</span>
+          </button>
+          {flagsOpen && (
+            <ul className="border-t border-slate-100 px-4 pb-4 space-y-2 text-sm">
+              {ministryFlags.map((f, i) => (
+                <li
+                  key={i}
+                  className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
+                >
+                  <span className="text-xs text-slate-500">
+                    {new Date(f.at).toLocaleString()} — {f.actorEmail ?? "—"}
+                  </span>
+                  <p className="mt-1 text-slate-800">{f.message}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full text-xs">
-          <thead className="bg-slate-50 text-left">
-            <tr>
-              <th className="px-2 py-2">Student</th>
-              {detail.subjects.map((s) => (
-                <th key={s.id} className="px-2 py-2">
-                  {s.code}
-                </th>
-              ))}
-              <th className="px-2 py-2">Avg</th>
-            </tr>
-          </thead>
-          <tbody>
-            {detail.students.map((row, i) => (
-              <tr key={i} className="border-t border-slate-100">
-                <td className="px-2 py-2 whitespace-nowrap">
-                  {row.student.lastName}, {row.student.firstName}
-                </td>
-                {row.grades.map((g, j) => (
-                  <td key={j} className="px-2 py-2">
-                    {g.gradeObtained ?? "—"}
-                  </td>
-                ))}
-                <td className="px-2 py-2 font-medium">
-                  {row.semesterAverage ?? "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <input
+          type="search"
+          placeholder="Filter students…"
+          className="renis-input max-w-xs"
+          value={studentSearch}
+          onChange={(e) => setStudentSearch(e.target.value)}
+        />
+        {studentSearch.trim() ? (
+          <span className="text-sm text-slate-500">
+            {filteredTotal} of {detail.students.length}
+          </span>
+        ) : null}
+        <span className="text-xs text-slate-500">Click a row for student details</span>
       </div>
+
+      {detail.students.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
+          No grade rows in this session.
+        </div>
+      ) : filteredStudents.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+          No students match your search.
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-50 text-left text-slate-600">
+              <tr>
+                <th className="px-2 py-2 sticky left-0 z-10 bg-slate-50 font-medium">
+                  Student
+                </th>
+                {detail.subjects.map((s) => (
+                  <th
+                    key={s.id}
+                    className="px-2 py-2 min-w-[3.5rem] font-medium"
+                    title={s.name}
+                  >
+                    {s.code}
+                  </th>
+                ))}
+                <th className="px-2 py-2 font-medium">Avg</th>
+                <th className="px-2 py-2 w-10" />
+              </tr>
+            </thead>
+            <tbody>
+              {pagedStudents.map((row) => (
+                <tr
+                  key={row.student.id}
+                  className="renis-table-row border-t border-slate-100"
+                  onClick={(e) => {
+                    if (isInteractiveTarget(e.target)) return;
+                    setStudentDetail(row);
+                  }}
+                >
+                  <td className="px-2 py-2 sticky left-0 z-10 bg-white whitespace-nowrap font-medium text-slate-900">
+                    {studentLabel(row)}
+                    <span className="block font-mono text-[10px] font-normal text-slate-400">
+                      {row.student.studentIdNumber}
+                    </span>
+                  </td>
+                  {row.grades.map((g, j) => (
+                    <td key={j} className="px-2 py-2 tabular-nums text-slate-700">
+                      {g.gradeObtained ?? "—"}
+                    </td>
+                  ))}
+                  <td className="px-2 py-2 font-medium tabular-nums">
+                    {row.semesterAverage !== null
+                      ? row.semesterAverage.toFixed(2)
+                      : "—"}
+                  </td>
+                  <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                    <RowMenu
+                      label={`Actions for ${row.student.studentIdNumber}`}
+                      items={[
+                        {
+                          label: "View student",
+                          onClick: () => setStudentDetail(row),
+                        },
+                      ]}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Pagination
+            page={studentPage}
+            pageSize={studentPageSize}
+            total={filteredTotal}
+            totalPages={studentTotalPages}
+            onPageChange={setStudentPage}
+            onPageSizeChange={setStudentPageSize}
+          />
+        </div>
+      )}
     </AppShell>
   );
 }

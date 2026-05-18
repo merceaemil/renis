@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { GradeClassification } from "@renis/core";
+import type { GradeClassification } from "@renis/core/grade-classifications";
 import { apiFetch } from "@/lib/api";
 
 type Settings = {

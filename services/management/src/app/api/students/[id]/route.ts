@@ -8,6 +8,7 @@ import { institutionWhere } from "@/lib/scope";
 import { forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const patchSchema = z.object({
+  studentIdNumber: z.string().min(1).max(64).optional(),
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
   dateOfBirth: z.string().optional().nullable(),
@@ -17,6 +18,28 @@ const patchSchema = z.object({
 
 export async function OPTIONS() {
   return corsOptions();
+}
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const user = await getApiUser(req);
+  if (!user) return withCors(unauthorized());
+  if (!canManageStudents(user.role)) return withCors(forbidden());
+
+  const scope = institutionWhere(user);
+  if (scope === null) return withCors(forbidden());
+
+  const student = await prisma.student.findFirst({
+    where: { id, ...scope },
+  });
+  if (!student) {
+    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+  }
+
+  return withCors(NextResponse.json(student));
 }
 
 export async function PATCH(
@@ -45,9 +68,31 @@ export async function PATCH(
     return withCors(NextResponse.json({ error: "Invalid payload" }, { status: 400 }));
   }
 
+  if (
+    body.studentIdNumber !== undefined &&
+    body.studentIdNumber !== existing.studentIdNumber
+  ) {
+    const duplicate = await prisma.student.findUnique({
+      where: {
+        institutionId_studentIdNumber: {
+          institutionId: existing.institutionId,
+          studentIdNumber: body.studentIdNumber,
+        },
+      },
+    });
+    if (duplicate && duplicate.id !== id) {
+      return withCors(
+        NextResponse.json({ error: "Student ID already exists." }, { status: 409 })
+      );
+    }
+  }
+
   const updated = await prisma.student.update({
     where: { id },
     data: {
+      ...(body.studentIdNumber !== undefined
+        ? { studentIdNumber: body.studentIdNumber }
+        : {}),
       ...(body.firstName !== undefined ? { firstName: body.firstName } : {}),
       ...(body.lastName !== undefined ? { lastName: body.lastName } : {}),
       ...(body.dateOfBirth !== undefined
