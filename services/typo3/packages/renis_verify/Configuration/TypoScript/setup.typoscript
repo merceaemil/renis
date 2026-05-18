@@ -1,0 +1,10 @@
+plugin.tx_renisverify_show {
+  view {
+    templateRootPaths {
+      0 = EXT:renis_verify/Resources/Private/Templates/
+    }
+    layoutRootPaths {
+      0 = EXT:renis_verify/Resources/Private/Layouts/
+    }
+  }
+}

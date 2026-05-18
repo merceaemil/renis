@@ -1,0 +1,31 @@
+{
+  "name": "renis-bi",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "services/management",
+    "services/widget"
+  ],
+  "scripts": {
+    "dev:management": "npm run dev -w @renis/management",
+    "docker:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d management",
+    "docker:dev:build": "docker compose -f docker-compose.yml -f docker-compose.dev.yml build management",
+    "docker:dev:logs": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f management",
+    "dev:widget": "npm run dev -w @renis/widget",
+    "build": "npm run build -w @renis/database && npm run build -w @renis/management && npm run build -w @renis/widget",
+    "db:generate": "npm run generate -w @renis/database",
+    "db:migrate": "npm run migrate -w @renis/database",
+    "db:seed": "npm run seed -w @renis/database",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^133.0.0",
+    "puppeteer-core": "^24.8.2",
+    "qrcode": "^1.5.4"
+  }
+}

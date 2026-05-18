@@ -1,0 +1,252 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  MINISTRY_ADMIN
+  INSTITUTION_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Institution {
+  id                           String   @id @default(uuid())
+  code                         String   @unique
+  name                         String
+  active                       Boolean  @default(true)
+  gradeClassifications         Json?    @map("grade_classifications")
+  passGradeThreshold           Decimal  @default(10) @map("pass_grade_threshold") @db.Decimal(5, 2)
+  logoObjectKey                String?  @map("logo_object_key")
+  signatureInstitutionObjectKey String? @map("signature_institution_object_key")
+  signatureMinistryObjectKey   String?  @map("signature_ministry_object_key")
+  createdAt                    DateTime @default(now()) @map("created_at")
+  updatedAt                    DateTime @updatedAt @map("updated_at")
+
+  users         User[]
+  students      Student[]
+  programmes    Programme[]
+  diplomas      Diploma[]
+  gradeSessions GradeSession[]
+  transcripts   TranscriptRecord[]
+
+  @@map("institutions")
+}
+
+/// Platform account — Keycloak identity + RENIS metadata (created via Next.js app)
+model User {
+  id            String     @id @default(uuid())
+  keycloakId    String     @unique @map("keycloak_id")
+  email         String     @unique
+  firstName     String     @map("first_name")
+  lastName      String     @map("last_name")
+  role          UserRole
+  status        UserStatus @default(ACTIVE)
+  institutionId String?    @map("institution_id")
+  createdById   String?    @map("created_by_id")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  createdBy     User?        @relation("UserCreatedBy", fields: [createdById], references: [id])
+  createdUsers  User[]       @relation("UserCreatedBy")
+  createdDiplomas Diploma[]  @relation("DiplomaCreatedBy")
+
+  @@index([institutionId])
+  @@map("users")
+}
+
+model Student {
+  id              String    @id @default(uuid())
+  institutionId   String    @map("institution_id")
+  studentIdNumber String    @map("student_id_number")
+  firstName       String    @map("first_name")
+  lastName        String    @map("last_name")
+  dateOfBirth     DateTime? @map("date_of_birth")
+  nameConsent     Boolean   @default(false) @map("name_consent")
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  institution  Institution           @relation(fields: [institutionId], references: [id])
+  grades       Grade[]
+  diplomas     Diploma[]
+  enrollments  ProgrammeEnrollment[]
+  transcripts  TranscriptRecord[]
+
+  @@unique([institutionId, studentIdNumber])
+  @@map("students")
+}
+
+model Programme {
+  id            String  @id @default(uuid())
+  institutionId String  @map("institution_id")
+  code          String
+  name          String
+  active        Boolean @default(true)
+
+  institution   Institution           @relation(fields: [institutionId], references: [id])
+  subjects      Subject[]
+  gradeSessions GradeSession[]
+  enrollments   ProgrammeEnrollment[]
+
+  @@unique([institutionId, code])
+  @@map("programmes")
+}
+
+model ProgrammeEnrollment {
+  id          String   @id @default(uuid())
+  studentId   String   @map("student_id")
+  programmeId String   @map("programme_id")
+  yearLevel   Int?     @map("year_level")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  programme Programme @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, programmeId])
+  @@index([programmeId])
+  @@map("programme_enrollments")
+}
+
+enum Semester {
+  S1
+  S2
+}
+
+model Subject {
+  id          String   @id @default(uuid())
+  programmeId String   @map("programme_id")
+  name        String
+  code        String
+  credits     Int      @default(0)
+  coefficient Decimal  @default(1) @db.Decimal(5, 2)
+  semester    Semester
+  yearLevel   Int      @map("year_level")
+
+  programme Programme @relation(fields: [programmeId], references: [id])
+  grades    Grade[]
+
+  @@unique([programmeId, code, semester])
+  @@map("subjects")
+}
+
+enum GradeStatus {
+  DRAFT
+  SUBMITTED
+}
+
+model GradeSession {
+  id            String      @id @default(uuid())
+  institutionId String      @map("institution_id")
+  programmeId   String      @map("programme_id")
+  academicYear  String      @map("academic_year")
+  semester      Semester
+  status        GradeStatus @default(DRAFT)
+  submittedAt   DateTime?   @map("submitted_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  institution  Institution        @relation(fields: [institutionId], references: [id])
+  programme    Programme          @relation(fields: [programmeId], references: [id])
+  grades       Grade[]
+  transcripts  TranscriptRecord[]
+
+  @@unique([programmeId, academicYear, semester])
+  @@map("grade_sessions")
+}
+
+model TranscriptRecord {
+  id               String   @id @default(uuid())
+  verificationCode String   @unique @map("verification_code")
+  institutionId    String   @map("institution_id")
+  studentId        String   @map("student_id")
+  gradeSessionId   String   @map("grade_session_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  institution  Institution  @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  gradeSession GradeSession @relation(fields: [gradeSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([gradeSessionId, studentId])
+  @@map("transcript_records")
+}
+
+model Grade {
+  id           String      @id @default(uuid())
+  sessionId    String      @map("session_id")
+  studentId    String      @map("student_id")
+  subjectId    String      @map("subject_id")
+  gradeObtained Decimal?   @map("grade_obtained") @db.Decimal(5, 2)
+  gradeMax     Decimal     @default(20) @map("grade_max") @db.Decimal(5, 2)
+  status       GradeStatus @default(DRAFT)
+  enteredById  String?     @map("entered_by_id")
+  submittedAt  DateTime?   @map("submitted_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  session GradeSession @relation(fields: [sessionId], references: [id])
+  student Student      @relation(fields: [studentId], references: [id])
+  subject Subject      @relation(fields: [subjectId], references: [id])
+
+  @@unique([sessionId, studentId, subjectId])
+  @@map("grades")
+}
+
+enum DiplomaStatus {
+  DRAFT
+  SUBMITTED
+  PUBLISHED
+  REVOKED
+}
+
+model Diploma {
+  id                String        @id @default(uuid())
+  uniqueCode        String?       @unique @map("unique_code")
+  institutionId     String        @map("institution_id")
+  studentId         String        @map("student_id")
+  type              String
+  programmeName     String?       @map("programme_name")
+  title             String
+  graduationYear    Int           @map("graduation_year")
+  honors            String?
+  createdById       String?       @map("created_by_id")
+  status            DiplomaStatus @default(DRAFT)
+  pdfPath           String?       @map("pdf_path")
+  pdfHash           String?       @map("pdf_hash")
+  submittedAt       DateTime?     @map("submitted_at")
+  publishedAt       DateTime?     @map("published_at")
+  revokedAt         DateTime?     @map("revoked_at")
+  revocationReason  String?       @map("revocation_reason")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id])
+  student     Student     @relation(fields: [studentId], references: [id])
+  createdBy   User?       @relation("DiplomaCreatedBy", fields: [createdById], references: [id])
+
+  @@map("diplomas")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  action     String
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id")
+  actorEmail String?  @map("actor_email")
+  metadata   Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("audit_logs")
+}

@@ -1,0 +1,19 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Renis\Auth\:
+    resource: "../Classes/*"
+
+  Renis\Auth\EventListener\KeycloakBackendUserLookupListener:
+    tags:
+      - name: event.listener
+        identifier: "renis-auth/keycloak-backend-user-lookup"
+        event: Waldhacker\Oauth2Client\Events\BackendUserLookupEvent
+
+  Renis\Auth\Command\SyncBackendUsersCommand:
+    tags:
+      - name: console.command
+        command: "renis_auth:sync-backend-users"
+        description: "Sync RENIS platform users into TYPO3 backend users for Keycloak login"

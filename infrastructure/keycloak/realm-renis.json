@@ -1,0 +1,144 @@
+{
+  "realm": "renis",
+  "enabled": true,
+  "displayName": "RENIS-BI",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "emailTheme": "renis",
+  "smtpServer": {
+    "host": "mailhog",
+    "port": "1025",
+    "from": "noreply@renis.bi",
+    "fromDisplayName": "RENIS-BI",
+    "auth": "false",
+    "ssl": "false",
+    "starttls": "false"
+  },
+  "attributes": {
+    "actionTokenGeneratedByAdminLifespan": "172800"
+  },
+  "roles": {
+    "realm": [
+      {
+        "name": "super_admin",
+        "description": "Super Admin — full platform (ARXIA)"
+      },
+      {
+        "name": "ministry_admin",
+        "description": "Ministry Admin — read-only across all institutions"
+      },
+      {
+        "name": "institution_admin",
+        "description": "Institution Admin — own institution only"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "renis-management",
+      "name": "RENIS Management (Next.js)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "change-me-in-production",
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://management:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://management:3000"
+      ],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:3000/*##http://management:3000/*"
+      }
+    },
+    {
+      "clientId": "renis-typo3",
+      "name": "RENIS TYPO3 (presentation & login)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "change-me-typo3-secret",
+      "redirectUris": [
+        "http://localhost:8082/*",
+        "http://localhost:8082/typo3/*",
+        "http://typo3/*",
+        "http://typo3/typo3/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8082",
+        "http://typo3"
+      ],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "renis-widget-public",
+      "name": "RENIS Widget (public verification)",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect"
+    }
+  ],
+  "users": [
+    {
+      "username": "super.admin@renis.bi",
+      "email": "super.admin@renis.bi",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Super",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "SuperAdmin123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["super_admin"]
+    },
+    {
+      "username": "ub.admin@renis.bi",
+      "email": "ub.admin@renis.bi",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "UB",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "UbAdmin123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["institution_admin"]
+    },
+    {
+      "username": "ministry.admin@renis.bi",
+      "email": "ministry.admin@renis.bi",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Ministry",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "MinistryAdmin123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["ministry_admin"]
+    }
+  ]
+}

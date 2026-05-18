@@ -1,0 +1,22 @@
+{
+    "name": "renis/verify",
+    "description": "RENIS public diploma verification widget (embed)",
+    "license": "GPL-2.0-or-later",
+    "type": "typo3-cms-extension",
+    "require": {
+        "php": "^8.2",
+        "typo3/cms-core": "^14.3",
+        "typo3/cms-extbase": "^14.3",
+        "typo3/cms-fluid": "^14.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Renis\\Verify\\": "Classes/"
+        }
+    },
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "renis_verify"
+        }
+    }
+}

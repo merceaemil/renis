@@ -1,0 +1,20 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers" data-namespace-typo3-fluid="true">
+<f:layout name="Default" />
+
+<f:section name="Main">
+  <div style="max-width: 640px; margin: 0 auto; padding: 1rem 0 2rem;">
+    <h1 style="font-size: 1.5rem; margin: 0 0 0.5rem;">Verify a diploma</h1>
+    <p style="color: #475569; font-size: 0.95rem; margin: 0 0 1.5rem;">
+      Enter the verification code printed on the diploma or scan its QR code.
+      This service is provided by the National Register of Diplomas (RENIS-BI).
+    </p>
+    <div
+      id="renis-verify"
+      data-renis-verify
+      data-api-url="{apiUrl}"
+      data-initial-code="{initialCode}"
+    ></div>
+    <script src="{widgetUrl}/renis-verify.iife.js" defer></script>
+  </div>
+</f:section>
+</html>

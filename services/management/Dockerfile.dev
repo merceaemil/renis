@@ -1,0 +1,29 @@
+# Development image: install deps once, run `next dev` with bind-mounted source (see docker-compose.dev.yml)
+FROM node:22-alpine
+
+WORKDIR /app
+
+RUN apk add --no-cache libc6-compat openssl chromium nss freetype harfbuzz ca-certificates ttf-freefont
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+COPY package.json package-lock.json* ./
+COPY packages/database/package.json ./packages/database/
+COPY packages/core/package.json ./packages/core/
+COPY services/management/package.json ./services/management/
+
+RUN npm ci
+
+COPY packages/database/prisma ./packages/database/prisma
+RUN npm run generate -w @renis/database
+
+COPY services/management/docker-entrypoint.dev.sh /usr/local/bin/renis-management-dev-entrypoint.sh
+RUN chmod +x /usr/local/bin/renis-management-dev-entrypoint.sh
+
+ENV NODE_ENV=development
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+
+EXPOSE 3000
+
+ENTRYPOINT ["/usr/local/bin/renis-management-dev-entrypoint.sh"]

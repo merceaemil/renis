@@ -1,0 +1,10 @@
+.DS_Store
+.idea
+nbproject
+/vendor
+/var/*
+!/var/labels
+/public/*
+!/public/.htaccess
+!/public/index.php
+/config

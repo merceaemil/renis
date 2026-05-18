@@ -1,0 +1,147 @@
+{
+    "name": "co-stack/typo3-oauth2-client",
+    "description": "TYPO3 OAuth2 Login Client (backend and frontend)",
+    "license": [
+        "GPL-2.0-or-later"
+    ],
+    "type": "typo3-cms-extension",
+    "authors": [
+        {
+            "name": "Oliver Eglseder",
+            "email": "oliver.eglseder@co-stack.com",
+            "homepage": "https://www.co-stack.com/",
+            "role": "Developer"
+        },
+        {
+            "name": "waldhacker",
+            "email": "hello@waldhacker.dev",
+            "homepage": "https://waldhacker.dev",
+            "role": "Developer"
+        }
+    ],
+    "homepage": "https://gitlab.com/co-stack.com/co-stack.com/typo3-extensions/typo3-oauth2-client",
+    "support": {
+        "issues": "https://gitlab.com/co-stack.com/co-stack.com/typo3-extensions/typo3-oauth2-client/-/issues"
+    },
+    "require": {
+        "php": "^8.1",
+        "ext-pdo": "*",
+        "league/oauth2-client": "^2.7",
+        "psr/log": "*",
+        "typo3/cms-backend": "^12.4@dev || ^13.4@dev || ^14.3@dev",
+        "typo3/cms-core": "^12.4@dev || ^13.4@dev || ^14.3@dev",
+        "typo3/cms-fluid": "^12.4@dev || ^13.4@dev || ^14.3@dev",
+        "typo3/cms-setup": "^12.4@dev || ^13.4@dev || ^14.3@dev"
+    },
+    "require-dev": {
+        "ergebnis/composer-normalize": "^2.23",
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "overtrue/phplint": "^9.2",
+        "phpspec/prophecy-phpunit": "^2.0",
+        "phpstan/extension-installer": "^1.0",
+        "roave/security-advisories": "dev-latest",
+        "saschaegerer/phpstan-typo3": "@dev",
+        "symfony/yaml": "^5.1 || ^6.4",
+        "typo3/cms-extensionmanager": "^12.4@dev || ^13.4@dev",
+        "typo3/cms-felogin": "^12.4@dev || ^13.4@dev",
+        "typo3/cms-fluid-styled-content": "^12.4@dev || ^13.4@dev",
+        "typo3/cms-frontend": "^12.4@dev || ^13.4@dev",
+        "typo3/cms-install": "^12.4@dev || ^13.4@dev",
+        "typo3/cms-recordlist": "^12.4@dev || ^13.4@dev",
+        "typo3/coding-standards": "^0.4.0",
+        "typo3/json-response": "*@dev",
+        "typo3/testing-framework": "^7.0 || ^8.0.9",
+        "vimeo/psalm": "^3.0 || ^4.0 || ^5.0",
+        "co-stack/typo3-oauth2-client-test": "*@dev"
+    },
+    "suggest": {
+        "league/oauth2-github": "Github Authentication"
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "build/Tests/Extensions/*"
+        }
+    ],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "Waldhacker\\Oauth2Client\\": "Classes/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Waldhacker\\Oauth2Client\\Tests\\": "Tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "composer/package-versions-deprecated": true,
+            "ergebnis/composer-normalize": true,
+            "phpstan/extension-installer": true,
+            "typo3/class-alias-loader": true,
+            "typo3/cms-composer-installers": true
+        },
+        "bin-dir": ".build/bin",
+        "sort-packages": true,
+        "vendor-dir": ".build/vendor"
+    },
+    "extra": {
+        "composer-normalize": {
+            "indent-size": 4,
+            "indent-style": "space"
+        },
+        "typo3/cms": {
+            "cms-package-dir": "{$vendor-dir}/typo3/cms",
+            "extension-key": "oauth2_client",
+            "web-dir": ".build/web"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "mkdir -p .build/web/typo3conf/ext/",
+            "[ -L .build/web/typo3conf/ext/oauth2_client ] || ln -snvf ../../../../. .build/web/typo3conf/ext/oauth2_client"
+        ],
+        "ci:cgl:check": [
+            "php-cs-fixer fix --config build/phpcs.dist -v --dry-run"
+        ],
+        "ci:cgl:fix": [
+            "php-cs-fixer fix --config build/phpcs.dist"
+        ],
+        "ci:lint:php": [
+            "phplint -c build/phplint.yaml"
+        ],
+        "ci:lint:yaml": [
+            "php build/yaml-lint.php Configuration/"
+        ],
+        "ci:normalize:check": [
+            "@composer normalize --dry-run"
+        ],
+        "ci:normalize:fix": [
+            "@composer normalize"
+        ],
+        "ci:psalm": [
+            "psalm --config=build/psalm.xml"
+        ],
+        "ci:psalm:gen-baseline": [
+            "psalm -c build/psalm.xml --set-baseline=build/psalm-baseline.xml"
+        ],
+        "ci:stan": [
+            "phpstan analyze --configuration build/phpstan.neon"
+        ],
+        "ci:stan:gen-baseline": [
+            "phpstan analyze --configuration build/phpstan.neon --generate-baseline build/phpstan.baseline.neon"
+        ],
+        "ci:tests:functional": [
+            "phpunit -c build/phpunit-functionals.xml --log-junit .build/logs/junit-functionals.xml"
+        ],
+        "ci:tests:unit": [
+            "phpunit -c build/phpunit.xml --log-junit .build/logs/junit.xml"
+        ],
+        "ci:tests:unit:cover": [
+            "mkdir -p .build/logs",
+            "phpdbg -d memory_limit=1024M -qrr ./.build/bin/phpunit -c build/phpunit.xml --coverage-text --colors=never --coverage-clover .build/logs/clover.xml --coverage-cobertura .build/logs/cobertura.xml --coverage-html .build/logs/html"
+        ]
+    }
+}

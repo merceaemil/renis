@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@theme {
+  --color-renis-primary: #1e3a5f;
+  --color-renis-accent: #c9a227;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}

@@ -1,0 +1,136 @@
+:host,
+.renis-root {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.renis-root *,
+.renis-root *::before,
+.renis-root *::after {
+  box-sizing: border-box;
+}
+
+.renis-card {
+  max-width: 420px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  background: #fff;
+}
+
+.renis-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+  font-size: 16px;
+  color: #1e3a5f;
+}
+
+.renis-subtitle {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.renis-label {
+  display: block;
+  font-size: 13px;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.renis-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.renis-input:focus {
+  outline: 2px solid #1e3a5f;
+  outline-offset: 1px;
+}
+
+.renis-btn {
+  width: 100%;
+  padding: 10px 16px;
+  background: #1e3a5f;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.renis-btn:hover:not(:disabled) {
+  background: #2a4d7a;
+}
+
+.renis-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.renis-result {
+  margin-top: 16px;
+}
+
+.renis-result--loading {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.renis-result--error {
+  color: #dc2626;
+  font-size: 14px;
+}
+
+.renis-alert {
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.renis-alert--success {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.renis-alert--revoked {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.renis-alert--unknown {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.renis-alert strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.renis-dl {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.renis-dl dt {
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.renis-dl dt:first-child {
+  margin-top: 0;
+}
+
+.renis-dl dd {
+  margin: 0 0 4px;
+}

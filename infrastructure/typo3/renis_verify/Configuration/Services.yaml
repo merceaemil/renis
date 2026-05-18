@@ -1,0 +1,14 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: false
+
+  Renis\Verify\:
+    resource: '../Classes/*'
+
+  Renis\Verify\Command\SetupVerifyPageCommand:
+    tags:
+      - name: console.command
+        command: 'renis_verify:setup-page'
+        description: 'Create public /verify page with RENIS widget'

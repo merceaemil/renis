@@ -1,0 +1,200 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-renis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-renis_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-renis}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init-databases.sh:/docker-entrypoint-initdb.d/02-init-databases.sh:ro
+    ports:
+      - "5532:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-renis}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak_dev_password}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: "8080"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./infrastructure/keycloak/realm-renis.json:/opt/keycloak/data/import/realm-renis.json:ro
+      - ./infrastructure/keycloak/themes/renis:/opt/keycloak/themes/renis:ro
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9002:9001"
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-minioadmin};
+      mc mb -p local/${MINIO_BUCKET:-renis-documents} || true;
+      mc mb -p local/renis-backups || true;
+      exit 0;
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-renis-documents}
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  typo3:
+    build:
+      context: ./services/typo3
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      TYPO3_CONTEXT: Development/Docker
+      TYPO3_DB_HOST: postgres
+      TYPO3_DB_PORT: "5432"
+      TYPO3_DB_NAME: ${TYPO3_DB_NAME:-typo3}
+      TYPO3_DB_USER: ${TYPO3_DB_USER:-typo3}
+      TYPO3_DB_PASSWORD: ${TYPO3_DB_PASSWORD:-typo3_dev_password}
+      TYPO3_BASE_URL: ${TYPO3_BASE_URL:-http://localhost:8082}
+      PHP_DISPLAY_ERRORS: "1"
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://localhost:8080/realms/renis}
+      KEYCLOAK_INTERNAL_ISSUER: ${KEYCLOAK_INTERNAL_ISSUER:-http://keycloak:8080/realms/renis}
+      KEYCLOAK_TYPO3_CLIENT_ID: ${KEYCLOAK_TYPO3_CLIENT_ID:-renis-typo3}
+      KEYCLOAK_TYPO3_CLIENT_SECRET: ${KEYCLOAK_TYPO3_CLIENT_SECRET:-change-me-typo3-secret}
+      WIDGET_PUBLIC_URL: ${WIDGET_PUBLIC_URL:-http://localhost:3001}
+      MANAGEMENT_PUBLIC_URL: ${MANAGEMENT_PUBLIC_URL:-http://localhost:3000}
+      RENIS_DATABASE_URL: postgresql://${POSTGRES_USER:-renis}:${POSTGRES_PASSWORD:-renis_dev_password}@postgres:5432/${POSTGRES_DB:-renis}
+    volumes:
+      - ./services/typo3:/var/www/html
+      - ./infrastructure/typo3/renis_verify:/opt/renis_verify:ro
+      - ./infrastructure/typo3/docker-entrypoint.sh:/usr/local/bin/renis-typo3-entrypoint.sh:ro
+    ports:
+      - "8082:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  management:
+    build:
+      context: .
+      dockerfile: services/management/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-renis}:${POSTGRES_PASSWORD:-renis_dev_password}@postgres:5432/${POSTGRES_DB:-renis}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      AUTH_SECRET: ${AUTH_SECRET:-dev-renis-auth-secret-do-not-use-in-production}
+      AUTH_TRUST_HOST: "true"
+      MANAGEMENT_PUBLIC_URL: ${MANAGEMENT_PUBLIC_URL:-http://localhost:3000}
+      NEXT_PUBLIC_KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://localhost:8080/realms/renis}
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-renis-management}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://localhost:8080/realms/renis}
+      KEYCLOAK_INTERNAL_ISSUER: ${KEYCLOAK_INTERNAL_ISSUER:-http://keycloak:8080/realms/renis}
+      KEYCLOAK_ADMIN_URL: ${KEYCLOAK_ADMIN_URL:-http://localhost:8080}
+      KEYCLOAK_ADMIN_INTERNAL_URL: ${KEYCLOAK_ADMIN_INTERNAL_URL:-http://keycloak:8080}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-renis}
+      KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN_USER:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-renis-management}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-change-me-in-production}
+      AUTH_KEYCLOAK_ID: ${KEYCLOAK_CLIENT_ID:-renis-management}
+      AUTH_KEYCLOAK_SECRET: ${KEYCLOAK_CLIENT_SECRET:-change-me-in-production}
+      SMTP_HOST: ${SMTP_HOST:-mailhog}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_FROM: ${SMTP_FROM:-noreply@renis.bi}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-http://localhost:9000}
+      MINIO_BUCKET: ${MINIO_BUCKET:-renis-documents}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      PUPPETEER_EXECUTABLE_PATH: ${PUPPETEER_EXECUTABLE_PATH:-/usr/bin/chromium-browser}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      mailhog:
+        condition: service_started
+      minio:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+
+  widget:
+    build:
+      context: .
+      dockerfile: services/widget/Dockerfile
+    restart: unless-stopped
+    environment:
+      RENIS_API_URL: ${MANAGEMENT_PUBLIC_URL:-http://localhost:3000}
+    ports:
+      - "3001:80"
+
+  db-migrate:
+    build:
+      context: .
+      dockerfile: packages/database/Dockerfile
+    profiles: ["tools"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-renis}:${POSTGRES_PASSWORD:-renis_dev_password}@postgres:5432/${POSTGRES_DB:-renis}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  db-seed:
+    build:
+      context: .
+      dockerfile: packages/database/Dockerfile
+    profiles: ["tools"]
+    command: ["npm", "run", "seed"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-renis}:${POSTGRES_PASSWORD:-renis_dev_password}@postgres:5432/${POSTGRES_DB:-renis}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  minio_data:

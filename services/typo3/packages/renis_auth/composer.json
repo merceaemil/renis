@@ -1,0 +1,21 @@
+{
+    "name": "renis/auth",
+    "description": "RENIS Keycloak backend user lookup for TYPO3",
+    "license": "GPL-2.0-or-later",
+    "type": "typo3-cms-extension",
+    "require": {
+        "php": "^8.2",
+        "co-stack/typo3-oauth2-client": "@dev",
+        "typo3/cms-core": "^14.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Renis\\Auth\\": "Classes/"
+        }
+    },
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "renis_auth"
+        }
+    }
+}

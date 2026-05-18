@@ -1,0 +1,52 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: false
+
+  Waldhacker\Oauth2Client\:
+    resource: '../Classes/*'
+
+  Waldhacker\Oauth2Client\Authentication\BackendAuthenticationService:
+    public: true
+
+  Waldhacker\Oauth2Client\Authentication\FrontendAuthenticationService:
+    public: true
+
+  Waldhacker\Oauth2Client\Backend\DataHandling\DataHandlerHook:
+    public: true
+
+  Waldhacker\Oauth2Client\Backend\LoginProvider\Oauth2LoginProvider:
+    public: true
+
+  Waldhacker\Oauth2Client\Backend\SiteConfig\ConfiguredFrontendProvidersItemsProcFunc:
+    public: true
+
+  Waldhacker\Oauth2Client\Backend\UserSettingsModule\ManageProvidersButtonRenderer:
+    public: true
+
+  Waldhacker\Oauth2Client\Controller\Backend\ManageProvidersController:
+    public: true
+
+  Waldhacker\Oauth2Client\Controller\Backend\Registration\AuthorizeController:
+    public: true
+
+  Waldhacker\Oauth2Client\Controller\Backend\Registration\VerifyController:
+    public: true
+
+  Waldhacker\Oauth2Client\Events\Listener\ModifyFrontendLoginFormViewListener:
+    tags:
+      - name: event.listener
+        identifier: 'oauth2_client'
+        event: TYPO3\CMS\FrontendLogin\Event\ModifyLoginFormViewEvent
+
+  Waldhacker\Oauth2Client\Events\Listener\GenerateRequestTokenListener:
+    tags:
+      - name: event.listener
+        identifier: 'oauth2_client_req_token'
+
+  Waldhacker\Oauth2Client\Service\Oauth2ProviderManager:
+    public: true
+
+  Waldhacker\Oauth2Client\Updates\RenameClientConfigsTableUpdateWizard20220122130120:
+    public: true

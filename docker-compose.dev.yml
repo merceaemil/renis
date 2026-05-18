@@ -1,0 +1,29 @@
+# Dev overrides — hot reload for management (no image rebuild on code changes).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d management
+#
+# First time (or after package.json changes):
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml build management
+#
+# Logs:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f management
+
+services:
+  management:
+    build:
+      context: .
+      dockerfile: services/management/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING_INTERVAL: "1000"
+    volumes:
+      - .:/app
+      - management_dev_node_modules:/app/node_modules
+      - management_dev_next:/app/services/management/.next
+
+volumes:
+  management_dev_node_modules:
+  management_dev_next:
