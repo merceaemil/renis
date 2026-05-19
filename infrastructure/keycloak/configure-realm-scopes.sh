@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# Keycloak --import-realm omits the "openid" client scope and often mis-links default scopes.
+# TYPO3 oauth2_client calls /userinfo (needs openid) and renis_auth matches users by email (needs profile/email).
+set -euo pipefail
+
+SERVER="${KEYCLOAK_SERVER:-http://keycloak:8080}"
+ADMIN_USER="${KEYCLOAK_ADMIN:-admin}"
+ADMIN_PASS="${KEYCLOAK_ADMIN_PASSWORD:-admin}"
+REALM="${KEYCLOAK_REALM:-renis}"
+CLIENTS="${KEYCLOAK_OIDC_CLIENTS:-renis-typo3,renis-management}"
+# OIDC scopes required for TYPO3 / management login (do not use SAML role_list here).
+REQUIRED_DEFAULT_SCOPES="${KEYCLOAK_REQUIRED_DEFAULT_SCOPES:-openid profile email roles web-origins acr basic}"
+
+KCADM=/opt/keycloak/bin/kcadm.sh
+
+echo "configure-realm-scopes: waiting for Keycloak admin API at ${SERVER}..."
+READY=0
+for _ in $(seq 1 90); do
+  if "${KCADM}" config credentials \
+    --server "${SERVER}" \
+    --realm master \
+    --user "${ADMIN_USER}" \
+    --password "${ADMIN_PASS}" >/dev/null 2>&1 \
+    && "${KCADM}" get "realms/${REALM}" >/dev/null 2>&1; then
+    READY=1
+    break
+  fi
+  sleep 2
+done
+if [[ "${READY}" -ne 1 ]]; then
+  echo "configure-realm-scopes: Keycloak admin API not ready after 180s" >&2
+  exit 1
+fi
+
+# kcadm -q name=… is not an exact match; filter id,name CSV in bash (Keycloak image has no awk).
+resolve_scope_id() {
+  local name="$1"
+  local line scope_id scope_name
+  while IFS= read -r line; do
+    [[ -z "${line}" ]] && continue
+    scope_id="${line%%,*}"
+    scope_name="${line#*,}"
+    if [[ "${scope_name}" == "${name}" ]]; then
+      echo "${scope_id}"
+      return 0
+    fi
+  done <<< "$("${KCADM}" get client-scopes -r "${REALM}" --fields id,name --format csv --noquotes 2>/dev/null || true)"
+  return 1
+}
+
+client_has_default_scope() {
+  local cid="$1"
+  local scope_id="$2"
+  "${KCADM}" get "clients/${cid}/default-client-scopes" -r "${REALM}" --fields id 2>/dev/null | grep -q "${scope_id}"
+}
+
+# Create openid scope if the realm import did not (KC #16168).
+OPENID_ID=$(resolve_scope_id openid || true)
+if [[ -z "${OPENID_ID}" ]]; then
+  echo "configure-realm-scopes: creating openid client scope in realm ${REALM}"
+  CREATE_OUT=$("${KCADM}" create client-scopes -r "${REALM}" -f - <<'EOF'
+{
+  "name": "openid",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "true",
+    "display.on.consent.screen": "false"
+  }
+}
+EOF
+  )
+  OPENID_ID=$(echo "${CREATE_OUT}" | sed -n "s/.*id '\\([^']*\\)'.*/\\1/p")
+  if [[ -z "${OPENID_ID}" ]]; then
+    OPENID_ID=$(resolve_scope_id openid || true)
+  fi
+fi
+
+IFS=',' read -ra CLIENT_IDS <<< "${CLIENTS}"
+for CLIENT_ID_NAME in "${CLIENT_IDS[@]}"; do
+  CLIENT_ID_NAME="${CLIENT_ID_NAME//[[:space:]]/}"
+  [[ -z "${CLIENT_ID_NAME}" ]] && continue
+  CID=$("${KCADM}" get clients -r "${REALM}" -q "clientId=${CLIENT_ID_NAME}" --fields id --format csv --noquotes 2>/dev/null | tail -1)
+  if [[ -z "${CID}" ]]; then
+    echo "configure-realm-scopes: client ${CLIENT_ID_NAME} not found, skipping"
+    continue
+  fi
+  echo "configure-realm-scopes: ensuring default scopes on ${CLIENT_ID_NAME}"
+  for SCOPE_NAME in ${REQUIRED_DEFAULT_SCOPES}; do
+    SCOPE_ID=$(resolve_scope_id "${SCOPE_NAME}" || true)
+    if [[ -z "${SCOPE_ID}" ]]; then
+      echo "configure-realm-scopes: warning: client scope ${SCOPE_NAME} not found in realm ${REALM}" >&2
+      continue
+    fi
+    if client_has_default_scope "${CID}" "${SCOPE_ID}"; then
+      continue
+    fi
+    echo "configure-realm-scopes:   + ${SCOPE_NAME}"
+    "${KCADM}" update "clients/${CID}/default-client-scopes/${SCOPE_ID}" -r "${REALM}"
+  done
+done
+
+echo "configure-realm-scopes: done"

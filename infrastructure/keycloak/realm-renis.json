@@ -77,7 +77,13 @@
       ],
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
-      "protocol": "openid-connect"
+      "protocol": "openid-connect",
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ]
     },
     {
       "clientId": "renis-widget-public",

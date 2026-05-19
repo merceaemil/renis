@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Renis\Auth\EventListener;
 
-use League\OAuth2\Client\Token\AccessTokenInterface;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use Waldhacker\Oauth2Client\Events\BackendUserLookupEvent;
 use Waldhacker\Oauth2Client\Repository\BackendUserRepository;
@@ -30,10 +29,7 @@ final class KeycloakBackendUserLookupListener
         }
 
         $remoteUser = $event->getRemoteUser();
-        $claims = array_merge(
-            $this->claimsFromAccessToken($event->getAccessToken()),
-            $remoteUser->toArray(),
-        );
+        $claims = $remoteUser->toArray();
         $email = $claims["email"] ?? $claims["preferred_username"] ?? null;
         if (!is_string($email) || $email === "") {
             return;
@@ -81,29 +77,5 @@ final class KeycloakBackendUserLookupListener
         }
 
         return $rows[0];
-    }
-
-    /**
-     * Userinfo may return only "sub" when profile/email scopes are missing; JWT still carries claims.
-     *
-     * @return array<string, mixed>
-     */
-    private function claimsFromAccessToken(AccessTokenInterface $accessToken): array
-    {
-        $jwt = $accessToken->getToken();
-        if (!is_string($jwt) || $jwt === "") {
-            return [];
-        }
-        $parts = explode('.', $jwt);
-        if (count($parts) < 2) {
-            return [];
-        }
-        $payload = base64_decode(strtr($parts[1], '-_', '+/'), true);
-        if ($payload === false) {
-            return [];
-        }
-        $decoded = json_decode($payload, true);
-
-        return is_array($decoded) ? $decoded : [];
     }
 }

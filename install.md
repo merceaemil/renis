@@ -70,14 +70,27 @@ Wait until containers are up (first build can take several minutes):
 docker compose ps
 ```
 
-Expected services: `postgres`, `keycloak`, `mailhog`, `minio`, `minio-init` (exits), `management`, `widget`, `typo3`.
+Expected services: `postgres`, `keycloak`, `keycloak-config` (one-shot, exits 0), `mailhog`, `minio`, `minio-init` (exits), `management`, `widget`, `typo3`.
+
+Confirm Keycloak scopes were applied (should print `configure-realm-scopes: done`):
+
+```bash
+docker compose logs keycloak-config
+```
+
+If `keycloak-config` failed or you started Keycloak before this repo version, re-run:
+
+```bash
+docker compose run --rm keycloak-config
+```
 
 **What this does automatically:**
 
 - PostgreSQL creates databases `renis`, `keycloak`, `typo3` (first start only)
 - Keycloak imports realm **`renis`** with dev users (first start only)
+- **`keycloak-config`** creates the **`openid`** client scope (if missing) and attaches **`openid`**, **`profile`**, **`email`**, and other defaults to `renis-typo3` and `renis-management` (do not put a custom `clientScopes` block in `realm-renis.json` — it replaces Keycloak’s built-in scopes)
 - MinIO creates bucket `renis-documents`
-- Management and widget images are built and started
+- Management and widget start after `keycloak-config` completes
 
 **What it does *not* do:**
 
@@ -131,25 +144,29 @@ Re-run seed only when you intend to reset data (may conflict with existing rows)
 
 ## 7. TYPO3 — first-time install
 
-TYPO3’s `config/` directory is gitignored. On a fresh clone you must run the install wizard once.
+TYPO3’s `config/` directory is gitignored. On a fresh clone you must create the database schema and the public **`/verify`** page.
 
-1. Ensure TYPO3 is running: `docker compose up -d typo3`
-2. Open **http://localhost:8082**
-3. Follow the **TYPO3 Install Tool** / setup wizard.
-4. Database settings (also injected via container env; use these if prompted):
+### Option A — CLI (recommended)
 
-   | Field | Value |
-   |-------|--------|
-   | Driver | PostgreSQL |
-   | Host | `postgres` (inside Docker network) |
-   | Port | `5432` |
-   | Database | `typo3` |
-   | User | `typo3` |
-   | Password | `typo3_dev_password` (or your `TYPO3_DB_PASSWORD` from `.env`) |
+```bash
+docker compose up -d typo3
+sh infrastructure/typo3/setup-typo3.sh
+```
 
-5. Complete site setup and admin user as guided by TYPO3.
+This runs TYPO3 setup (if the `typo3` database is empty), activates `renis_verify`, and creates **http://localhost:8082/verify**.
 
-Install tool password (if asked): value of `TYPO3_INSTALL_TOOL_PASSWORD` in `.env` (default `password`).
+### Option B — Install Tool (browser)
+
+1. `docker compose up -d typo3`
+2. Open **http://localhost:8082/typo3/install.php** (not `/typo3` on first install).
+3. Use **PostgreSQL**, host `postgres`, database `typo3`, user/password from `.env`.
+4. After the wizard finishes:
+
+```bash
+sh infrastructure/typo3/finish-typo3-setup.sh
+```
+
+Install tool password: `TYPO3_INSTALL_TOOL_PASSWORD` in `.env` (default `password`).
 
 See also `services/typo3/README.md`.
 
@@ -159,29 +176,37 @@ See also `services/typo3/README.md`.
 
 RENIS users are created in the management app and Keycloak; TYPO3 backend login uses OAuth and synced `be_users` rows.
 
-After **db-seed** and TYPO3 install (`config/system/settings.php` exists):
+**Order matters:** complete [§5](#5-database-migrations-and-seed) and [§7](#7-typo3--first-time-install) first, then:
 
 ```bash
+docker compose run --rm keycloak-config   # safe to re-run; skip if §4 logs show "done"
 docker compose exec typo3 php vendor/bin/typo3 renis_auth:sync-backend-users
 ```
 
-Then open **http://localhost:8082/typo3** → **Sign in with Keycloak** → e.g. `super.admin@renis.bi` / `SuperAdmin123!`.
+Open the backend (Keycloak tab directly):
 
-Details: `infrastructure/typo3/README.md`.
+**http://localhost:8082/typo3/login?loginProvider=1616569531**
+
+1. Click **RENIS (Keycloak)** — not the grey **Login** on the username/password tab (that tab logs `username '' with an empty password` if used without credentials).
+2. Sign in at Keycloak with e.g. `super.admin@renis.bi` / `SuperAdmin123!`.
+3. After a failed attempt, sign **out** of Keycloak or use a private window before retrying (old tokens may lack the `openid` scope).
+
+Details: `infrastructure/typo3/README.md`, `infrastructure/keycloak/README.md`.
 
 ---
 
-## 9. TYPO3 — public verification page (optional)
+## 9. TYPO3 — public verification page
 
-Enable the `/verify` page with the embeddable widget:
+Included in `setup-typo3.sh` / container startup. If **http://localhost:8082/verify** is missing (404 or empty page):
 
 ```bash
-sh infrastructure/typo3/apply-verify-extension.sh
+sh infrastructure/typo3/finish-typo3-setup.sh
+docker compose restart typo3
 ```
 
-Then open **http://localhost:8082/verify**.
+Then open **http://localhost:8082/verify** (widget script from port **3001**, API from **3000**).
 
-Manual equivalent: `infrastructure/typo3/README-verify.md`.
+Details: `infrastructure/typo3/README-verify.md`.
 
 ---
 
@@ -227,9 +252,9 @@ Use when switching DB engines, corrupted volumes, or password mismatches:
 docker compose down -v
 ```
 
-Then repeat from [§4](#4-start-the-stack) (migrations and TYPO3 install are required again).
+Then repeat from [§4](#4-start-the-stack) (migrations and TYPO3 install are required again). A new `docker compose up` runs **`keycloak-config`** again automatically.
 
-**Keycloak realm:** `--import-realm` only runs when realm `renis` does not exist. To force re-import, stop Keycloak and remove its data (see `infrastructure/keycloak/README.md`).
+**Keycloak realm:** `--import-realm` only runs when realm `renis` does not exist. It does **not** re-apply client scope fixes from `realm-renis.json` on an existing DB — rely on **`keycloak-config`** instead (see `infrastructure/keycloak/README.md`).
 
 ---
 
@@ -283,6 +308,7 @@ Start infrastructure only:
 
 ```bash
 docker compose up -d postgres keycloak mailhog minio
+docker compose run --rm keycloak-config
 ```
 
 Then:
@@ -312,13 +338,49 @@ Run [§5](#5-database-migrations-and-seed). The app does not migrate on containe
 
 When Next.js runs **on the host**, use `http://localhost:9000` for MinIO, not `http://minio:9000`. When running **in Docker**, use `http://minio:9000`.
 
-### TYPO3: “login did not succeed” after Keycloak
+### TYPO3: “login did not succeed” after Keycloak (callback URL returns 200, still on login page)
 
-Run `renis_auth:sync-backend-users` (§8). Email must match a row in RENIS `users` (from seed or management app).
+1. Use the Keycloak tab: **http://localhost:8082/typo3/login?loginProvider=1616569531** → **RENIS (Keycloak)**.
+2. Ensure **`openid`** scope is configured:
 
-### TYPO3: `/verify` missing
+   ```bash
+   docker compose run --rm keycloak-config
+   docker compose logs keycloak-config   # expect: configure-realm-scopes: done
+   ```
 
-Run §9 (`apply-verify-extension.sh`).
+3. Run migrations + seed, then sync backend users (§8):
+
+   ```bash
+   docker compose --profile tools run --rm db-migrate
+   docker compose --profile tools run --rm db-seed
+   docker compose exec typo3 php vendor/bin/typo3 renis_auth:sync-backend-users
+   ```
+
+4. Confirm `.env`: `KEYCLOAK_TYPO3_CLIENT_SECRET=change-me-typo3-secret` and `KEYCLOAK_INTERNAL_ISSUER=http://keycloak:8080/realms/renis`.
+5. Sign out of Keycloak (or private window) and try again after fixing scopes.
+
+If TYPO3 logs `Invalid response received from Authorization Server. Expected JSON`, the access token is missing **`openid`** (Keycloak `/userinfo` returns 403). Fix with step 2 above — do **not** add `options.scopes` in TYPO3 `additional.php`.
+
+If login returns to the form with no OAuth error but `username "" with an empty password` in TYPO3 logs, Keycloak likely has **`profile`/`email` scopes missing** on `renis-typo3` (userinfo only returns `sub`). Run `docker compose run --rm keycloak-config` and check scopes:
+
+```bash
+docker compose exec keycloak /opt/keycloak/bin/kcadm.sh config credentials \
+  --server http://localhost:8080 --realm master --user admin --password admin
+CID=$(docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh get clients -r renis \
+  -q clientId=renis-typo3 --fields id --format csv --noquotes | tail -1)
+docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh get "clients/${CID}/default-client-scopes" -r renis --fields name
+```
+
+You should see **`openid`**, **`profile`**, and **`email`**. If the realm only lists `openid` and `offline_access` under **Client scopes**, wipe volumes (`docker compose down -v`) and install again — an older `realm-renis.json` with a `clientScopes` section can destroy built-in scopes.
+
+### TYPO3: `/verify` missing (404 or no widget)
+
+```bash
+sh infrastructure/typo3/finish-typo3-setup.sh
+docker compose restart typo3
+```
+
+Ensure `widget` and `management` are running (`docker compose up -d widget management`).
 
 ### Keycloak: wrong password for `super.admin@renis.bi`
 
@@ -351,13 +413,17 @@ cp .env.example .env
 # Edit AUTH_SECRET and confirm KEYCLOAK_INTERNAL_ISSUER
 
 docker compose up -d --build
+docker compose logs keycloak-config    # openid scope fix — must finish before TYPO3 OAuth works
+
 docker compose --profile tools build db-migrate
 docker compose --profile tools run --rm db-migrate
 docker compose --profile tools run --rm db-seed
 
 # Browser: http://localhost:3000 → super.admin@renis.bi / SuperAdmin123!
 
-# TYPO3: http://localhost:8082 → install wizard → then:
+# TYPO3:
+sh infrastructure/typo3/setup-typo3.sh
+docker compose run --rm keycloak-config
 docker compose exec typo3 php vendor/bin/typo3 renis_auth:sync-backend-users
-sh infrastructure/typo3/apply-verify-extension.sh
+# Backend: http://localhost:8082/typo3/login?loginProvider=1616569531 → RENIS (Keycloak)
 ```

@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && a2enmod rewrite headers \
     && rm -rf /var/lib/apt/lists/*
 
-COPY docker/php/typo3.ini /usr/local/etc/php/conf.d/99-typo3.ini
+COPY services/typo3/docker/php/typo3.ini /usr/local/etc/php/conf.d/99-typo3.ini
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -38,8 +38,9 @@ ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
     && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
-COPY docker-entrypoint.sh /usr/local/bin/renis-typo3-entrypoint.sh
-RUN chmod +x /usr/local/bin/renis-typo3-entrypoint.sh
+COPY infrastructure/typo3/docker-entrypoint.sh /usr/local/bin/renis-typo3-entrypoint.sh
+COPY infrastructure/typo3/container-finish-setup.sh /usr/local/bin/renis-typo3-finish-setup.sh
+RUN chmod +x /usr/local/bin/renis-typo3-entrypoint.sh /usr/local/bin/renis-typo3-finish-setup.sh
 
 WORKDIR /var/www/html
 

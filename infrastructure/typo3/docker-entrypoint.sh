@@ -37,6 +37,9 @@ $internalIssuer = rtrim(
 $clientId = (string) (getenv('KEYCLOAK_TYPO3_CLIENT_ID') ?: 'renis-typo3');
 $clientSecret = (string) (getenv('KEYCLOAK_TYPO3_CLIENT_SECRET') ?: '');
 
+// OAuth redirect: Keycloak on :8080, TYPO3 on :8082 — cookies must be Lax (not Strict).
+$GLOBALS['TYPO3_CONF_VARS']['BE']['cookieSameSite'] = 'lax';
+
 if ($issuer !== '' && $clientId !== '') {
     $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['oauth2_client'] = [
         'providers' => [
@@ -59,6 +62,12 @@ if ($issuer !== '' && $clientId !== '') {
         ],
     ];
 }
+
+// Default login tab: Keycloak (not empty username/password form).
+$oauthProviderId = \Waldhacker\Oauth2Client\Backend\LoginProvider\Oauth2LoginProvider::PROVIDER_ID;
+if (isset($GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['backend']['loginProviders'][$oauthProviderId])) {
+    $GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['backend']['loginProviders'][$oauthProviderId]['sorting'] = 100;
+}
 PHP
 
 chown -R www-data:www-data /var/www/html
@@ -72,13 +81,24 @@ if [ -d /opt/renis_verify ]; then
 fi
 
 if [ -f config/system/settings.php ]; then
-  if [ -d /var/www/html/packages/renis_verify ]; then
-    composer require renis/verify:@dev --no-interaction --no-scripts 2>/dev/null || true
+  # settings.php can exist before the DB schema (e.g. partial web install) — create tables if missing
+  if ! php -r "
+    require 'vendor/autoload.php';
+    \$h = getenv('TYPO3_DB_HOST') ?: 'postgres';
+    \$d = getenv('TYPO3_DB_NAME') ?: 'typo3';
+    \$u = getenv('TYPO3_DB_USER') ?: 'typo3';
+    \$p = getenv('TYPO3_DB_PASSWORD') ?: 'typo3_dev_password';
+    \$pdo = new PDO(\"pgsql:host=\$h;dbname=\$d\", \$u, \$p);
+    \$n = (int) \$pdo->query(\"SELECT count(*) FROM information_schema.tables WHERE table_schema='public'\")->fetchColumn();
+    exit(\$n > 0 ? 0 : 1);
+  " 2>/dev/null; then
+    echo "TYPO3: no database tables yet — run extension:setup…"
+    php vendor/bin/typo3 extension:setup -n || echo "TYPO3 extension:setup failed; use infrastructure/typo3/setup-typo3.sh"
+  elif [ -x /usr/local/bin/renis-typo3-finish-setup.sh ]; then
+    echo "TYPO3: ensuring /verify page and extensions…"
+    sh /usr/local/bin/renis-typo3-finish-setup.sh || echo "TYPO3 finish setup failed; run: sh infrastructure/typo3/finish-typo3-setup.sh"
   fi
-  php vendor/bin/typo3 extension:setup -n 2>/dev/null || true
-  php vendor/bin/typo3 cache:flush 2>/dev/null || true
   php vendor/bin/typo3 renis_auth:sync-backend-users 2>/dev/null || true
-  php vendor/bin/typo3 renis_verify:setup-page 2>/dev/null || true
 fi
 
 if [ "$#" -eq 0 ]; then

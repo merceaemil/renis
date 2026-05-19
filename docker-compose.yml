@@ -29,9 +29,10 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       KC_HTTP_ENABLED: "true"
-      KC_HOSTNAME: localhost
-      KC_HOSTNAME_PORT: "8080"
+      KC_HOSTNAME: http://localhost:8080
       KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_BACKCHANNEL: "false"
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HEALTH_ENABLED: "true"
     volumes:
       - ./infrastructure/keycloak/realm-renis.json:/opt/keycloak/data/import/realm-renis.json:ro
@@ -43,6 +44,22 @@ services:
         condition: service_healthy
       mailhog:
         condition: service_started
+
+  # Keycloak realm import omits the openid client scope; TYPO3 userinfo needs it (KC #16168).
+  keycloak-config:
+    image: quay.io/keycloak/keycloak:26.2
+    restart: "no"
+    depends_on:
+      keycloak:
+        condition: service_started
+    environment:
+      KEYCLOAK_SERVER: http://keycloak:8080
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KEYCLOAK_REALM: renis
+    volumes:
+      - ./infrastructure/keycloak/configure-realm-scopes.sh:/configure-realm-scopes.sh:ro
+    entrypoint: ["/bin/bash", "/configure-realm-scopes.sh"]
 
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
@@ -83,8 +100,8 @@ services:
 
   typo3:
     build:
-      context: ./services/typo3
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/typo3/Dockerfile
     restart: unless-stopped
     environment:
       TYPO3_CONTEXT: Development/Docker
@@ -106,6 +123,7 @@ services:
       - ./services/typo3:/var/www/html
       - ./infrastructure/typo3/renis_verify:/opt/renis_verify:ro
       - ./infrastructure/typo3/docker-entrypoint.sh:/usr/local/bin/renis-typo3-entrypoint.sh:ro
+      - ./infrastructure/typo3/container-finish-setup.sh:/usr/local/bin/renis-typo3-finish-setup.sh:ro
     ports:
       - "8082:80"
     depends_on:
@@ -113,6 +131,8 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_started
+      keycloak-config:
+        condition: service_completed_successfully
 
   management:
     build:
@@ -155,6 +175,8 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_started
+      keycloak-config:
+        condition: service_completed_successfully
       mailhog:
         condition: service_started
       minio:

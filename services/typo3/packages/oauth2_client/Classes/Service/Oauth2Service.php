@@ -107,3 +107,4 @@ class Oauth2Service
         return $user;
     }
 }
+

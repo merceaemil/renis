@@ -11,9 +11,10 @@ type FindManyArgs = {
   select?: object;
 };
 
+/** Minimal Prisma model delegate — args kept loose so all generated delegates type-check. */
 type PrismaDelegate<T> = {
-  count: (args: { where?: object }) => Promise<number>;
-  findMany: (args: FindManyArgs & { skip?: number; take?: number }) => Promise<T[]>;
+  count: (args?: { where?: object }) => Promise<number>;
+  findMany: (args?: object) => Promise<T[]>;
 };
 
 /** Paginated findMany, or full list when `all=true`. */

@@ -99,6 +99,43 @@ docker exec renis-keycloak-1 /opt/keycloak/bin/kcadm.sh update realms/renis -s e
 
 Restart Keycloak after changing the email theme mount in `docker-compose.yml`.
 
+## TYPO3 client: `openid` scope (userinfo / backend login)
+
+Client `renis-typo3` must have the **`openid`** default client scope. Without it, `/userinfo` returns 403 (`insufficient_scope`) and TYPO3 logs `Expected JSON` after the OAuth callback.
+
+Keycloak’s `--import-realm` does **not** create the `openid` client scope (see [Keycloak #16168](https://github.com/keycloak/keycloak/issues/16168)). `docker compose up` runs the one-shot **`keycloak-config`** service (`infrastructure/keycloak/configure-realm-scopes.sh`) to create `openid` and attach **`openid`**, **`profile`**, **`email`**, and other defaults to `renis-typo3` and `renis-management`.
+
+**Do not** add a `clientScopes` section to `realm-renis.json` — it replaces Keycloak’s built-in scopes and breaks login (only `openid`/`offline_access` remain).
+
+If login still fails after a fresh wipe, run:
+
+```bash
+docker compose run --rm keycloak-config
+```
+
+Manual fix (without re-running compose):
+
+### Admin Console
+
+Realm **renis** → **Clients** → **renis-typo3** → **Client scopes** → **Add client scope** → choose **openid** → **Add** → set as **Default**.
+
+### CLI (existing Docker stack)
+
+```bash
+docker compose exec keycloak /opt/keycloak/bin/kcadm.sh config credentials \
+  --server http://localhost:8080 --realm master --user admin --password admin
+
+CLIENT_ID=$(docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh get clients -r renis \
+  -q clientId=renis-typo3 --fields id --format csv --noquotes | tail -1)
+OPENID_ID=$(docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh get client-scopes -r renis \
+  -q name=openid --fields id --format csv --noquotes | tail -1)
+
+docker compose exec keycloak /opt/keycloak/bin/kcadm.sh update \
+  "clients/${CLIENT_ID}/default-client-scopes/${OPENID_ID}" -r renis
+```
+
+Then sign out of Keycloak and retry TYPO3 login (old tokens still lack `openid`).
+
 ## Re-import realm
 
 `--import-realm` only creates the realm on first start (`IGNORE_EXISTING`). To re-import from JSON:

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { canViewMinistryDashboard } from "@renis/core/permissions";
-import { DiplomaStatus, prisma } from "@renis/database";
+import { DiplomaStatus, prisma, type Prisma } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { paginatedQuery } from "@/lib/prisma-pagination";
 import { forbidden, getApiUser, unauthorized } from "@/lib/session";
@@ -26,64 +26,63 @@ export async function GET(req: NextRequest) {
           ? DiplomaStatus.REVOKED
           : undefined;
 
+  const listArgs = {
+    where: {
+      ...(statusFilter
+        ? { status: statusFilter }
+        : { status: { in: [DiplomaStatus.SUBMITTED, DiplomaStatus.PUBLISHED] } }),
+      ...(institutionId ? { institutionId } : {}),
+    },
+    include: {
+      institution: { select: { id: true, name: true, code: true } },
+      student: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          studentIdNumber: true,
+          nameConsent: true,
+        },
+      },
+    },
+    orderBy: [{ submittedAt: "desc" as const }, { publishedAt: "desc" as const }],
+  } satisfies Prisma.DiplomaFindManyArgs;
+
   const result = await paginatedQuery(
     req.nextUrl.searchParams,
     prisma.diploma,
-    {
-      where: {
-        ...(statusFilter
-          ? { status: statusFilter }
-          : { status: { in: [DiplomaStatus.SUBMITTED, DiplomaStatus.PUBLISHED] } }),
-        ...(institutionId ? { institutionId } : {}),
-      },
-      include: {
-        institution: { select: { id: true, name: true, code: true } },
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            studentIdNumber: true,
-            nameConsent: true,
-          },
-        },
-      },
-      orderBy: [{ submittedAt: "desc" }, { publishedAt: "desc" }],
-    }
+    listArgs
   );
 
   if (Array.isArray(result)) {
-    const payload = result.map(mapMinistryDiploma);
+    const payload = (result as MinistryDiplomaRow[]).map(mapMinistryDiploma);
     return withCors(NextResponse.json(payload));
   }
 
   return withCors(
     NextResponse.json({
       ...result,
-      items: result.items.map(mapMinistryDiploma),
+      items: (result.items as MinistryDiplomaRow[]).map(mapMinistryDiploma),
     })
   );
 }
 
-function mapMinistryDiploma(d: {
-  id: string;
-  status: string;
-  uniqueCode: string | null;
-  type: string;
-  title: string;
-  graduationYear: number;
-  honors: string | null;
-  submittedAt: Date | null;
-  publishedAt: Date | null;
-  pdfPath: string | null;
-  institution: { id: string; name: string; code: string };
-  student: {
-    firstName: string;
-    lastName: string;
-    studentIdNumber: string;
-    nameConsent: boolean;
+type MinistryDiplomaRow = Prisma.DiplomaGetPayload<{
+  include: {
+    institution: { select: { id: true; name: true; code: true } };
+    student: {
+      select: {
+        id: true;
+        firstName: true;
+        lastName: true;
+        studentIdNumber: true;
+        nameConsent: true;
+      };
+    };
   };
-}) {
+}>;
+
+function mapMinistryDiploma(d: MinistryDiplomaRow) {
   return {
     id: d.id,
     status: d.status,
