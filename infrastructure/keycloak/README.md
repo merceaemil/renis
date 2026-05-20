@@ -136,6 +136,53 @@ docker compose exec keycloak /opt/keycloak/bin/kcadm.sh update \
 
 Then sign out of Keycloak and retry TYPO3 login (old tokens still lack `openid`).
 
+## Branded login page (theme `renis`)
+
+The Keycloak hosted login pages (sign-in, forgot password, set password, account console) are themed to match the RENIS-BI management UI:
+
+- Files: `infrastructure/keycloak/themes/renis/login/`
+- Email files (existing): `infrastructure/keycloak/themes/renis/email/`
+- Parent theme: `keycloak.v2` (PatternFly 5 — Keycloak 26.x default)
+- Brand colors: `#1e3a5f` primary, `#c9a227` accent (same tokens as `services/management/src/app/globals.css`)
+- Realm attribute: `loginTheme=renis` (set in `realm-renis.json` and re-applied by `keycloak-config` on every `docker compose up`)
+
+### How it is applied
+
+| When | Mechanism |
+|------|-----------|
+| Fresh Keycloak DB | `realm-renis.json` → imported on first `docker compose up` |
+| Existing realm (any subsequent boot) | `keycloak-config` service runs `configure-realm-scopes.sh`, which does `kcadm update realms/renis -s loginTheme=renis -s emailTheme=renis` |
+
+Both paths read `KEYCLOAK_LOGIN_THEME` and `KEYCLOAK_EMAIL_THEME` env vars (default `renis`). Set them to `keycloak` to opt out without removing the files.
+
+### Editing the theme
+
+The theme directory is mounted read-only into Keycloak at `/opt/keycloak/themes/renis` (see `docker-compose.yml` `keycloak` service). To iterate on CSS:
+
+```bash
+# 1. Edit infrastructure/keycloak/themes/renis/login/...
+# 2. Reload Keycloak so it re-reads themes from disk (dev mode caches them).
+docker compose restart keycloak
+```
+
+Keycloak caches themes in production mode. `start-dev` (used in `docker-compose.yml`) sets `KC_THEME_STATIC_MAX_AGE=-1` and disables caching, so a hard refresh (Ctrl+Shift+R) is usually enough; the restart is only needed when you change `theme.properties` or add new files.
+
+### Verifying
+
+1. Open http://localhost:3000 — click **Sign in with Keycloak**.
+2. The Keycloak page should show the RENIS-BI wordmark on a dark blue gradient, gold accent line, and a navy **Sign in** button.
+3. The browser address bar still points at `/realms/renis/protocol/openid-connect/auth?...` — the theme runs on Keycloak, not in the management app.
+
+### Reverting
+
+```bash
+docker compose exec keycloak /opt/keycloak/bin/kcadm.sh config credentials \
+  --server http://localhost:8080 --realm master --user admin --password admin
+docker compose exec keycloak /opt/keycloak/bin/kcadm.sh update realms/renis -s 'loginTheme=keycloak'
+```
+
+Or set `KEYCLOAK_LOGIN_THEME=keycloak` in `.env` and re-run `docker compose run --rm keycloak-config`.
+
 ## Re-import realm
 
 `--import-realm` only creates the realm on first start (`IGNORE_EXISTING`). To re-import from JSON:

@@ -8,6 +8,7 @@
   "resetPasswordAllowed": true,
   "editUsernameAllowed": false,
   "bruteForceProtected": true,
+  "loginTheme": "renis",
   "emailTheme": "renis",
   "smtpServer": {
     "host": "mailhog",

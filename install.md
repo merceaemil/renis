@@ -89,6 +89,7 @@ docker compose run --rm keycloak-config
 - PostgreSQL creates databases `renis`, `keycloak`, `typo3` (first start only)
 - Keycloak imports realm **`renis`** with dev users (first start only)
 - **`keycloak-config`** creates the **`openid`** client scope (if missing) and attaches **`openid`**, **`profile`**, **`email`**, and other defaults to `renis-typo3` and `renis-management` (do not put a custom `clientScopes` block in `realm-renis.json` — it replaces Keycloak’s built-in scopes)
+- **`keycloak-config`** also sets `loginTheme=renis` and `emailTheme=renis` on the realm, so the Keycloak sign-in page matches the RENIS-BI brand (`infrastructure/keycloak/themes/renis/`). To opt out, set `KEYCLOAK_LOGIN_THEME=keycloak` in `.env`.
 - MinIO creates bucket `renis-documents`
 - Management and widget start after `keycloak-config` completes
 

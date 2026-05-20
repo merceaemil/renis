@@ -10,6 +10,9 @@ REALM="${KEYCLOAK_REALM:-renis}"
 CLIENTS="${KEYCLOAK_OIDC_CLIENTS:-renis-typo3,renis-management}"
 # OIDC scopes required for TYPO3 / management login (do not use SAML role_list here).
 REQUIRED_DEFAULT_SCOPES="${KEYCLOAK_REQUIRED_DEFAULT_SCOPES:-openid profile email roles web-origins acr basic}"
+# Branded UI theme — applied to existing realms since --import-realm only runs on first start.
+LOGIN_THEME="${KEYCLOAK_LOGIN_THEME:-renis}"
+EMAIL_THEME="${KEYCLOAK_EMAIL_THEME:-renis}"
 
 KCADM=/opt/keycloak/bin/kcadm.sh
 
@@ -98,5 +101,16 @@ for CLIENT_ID_NAME in "${CLIENT_IDS[@]}"; do
     "${KCADM}" update "clients/${CID}/default-client-scopes/${SCOPE_ID}" -r "${REALM}"
   done
 done
+
+# Ensure the realm uses the RENIS login + email themes. realm-renis.json sets these
+# on import, but Keycloak skips realm-level updates if the realm already exists.
+if [[ -n "${LOGIN_THEME}" || -n "${EMAIL_THEME}" ]]; then
+  echo "configure-realm-scopes: ensuring realm themes (loginTheme=${LOGIN_THEME}, emailTheme=${EMAIL_THEME})"
+  UPDATE_ARGS=()
+  [[ -n "${LOGIN_THEME}" ]] && UPDATE_ARGS+=("-s" "loginTheme=${LOGIN_THEME}")
+  [[ -n "${EMAIL_THEME}" ]] && UPDATE_ARGS+=("-s" "emailTheme=${EMAIL_THEME}")
+  "${KCADM}" update "realms/${REALM}" "${UPDATE_ARGS[@]}" || \
+    echo "configure-realm-scopes: warning: failed to update realm themes" >&2
+fi
 
 echo "configure-realm-scopes: done"
