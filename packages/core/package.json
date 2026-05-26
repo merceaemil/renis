@@ -15,7 +15,9 @@
     "./pagination": "./src/pagination.ts",
     "./grade-classifications": "./src/grade-classifications.ts",
     "./calculations": "./src/calculations.ts",
-    "./grades": "./src/grades.ts"
+    "./grades": "./src/grades.ts",
+    "./i18n": "./src/i18n.ts",
+    "./i18n-api-messages": "./src/i18n-api-messages.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.812.0",

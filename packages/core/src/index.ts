@@ -1,5 +1,7 @@
 export * from "./audit";
 export * from "./email";
+export * from "./i18n";
+export * from "./i18n-api-messages";
 export * from "./keycloak-admin";
 export * from "./permissions";
 export * from "./roles";

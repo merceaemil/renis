@@ -11,7 +11,8 @@ import {
 import { prisma, UserRole, UserStatus } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { paginatedQuery } from "@/lib/prisma-pagination";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { resolveLocaleFromRequest } from "@/lib/i18n/server";
 
 const createUserSchema = z.object({
   email: z.string().email(),
@@ -26,9 +27,10 @@ export async function OPTIONS() {
 }
 
 export async function GET(req: NextRequest) {
+  const locale = resolveLocaleFromRequest(req);
   const user = await getApiUser(req);
-  if (!user) return withCors(unauthorized());
-  if (!canManageUsers(user.role)) return withCors(forbidden());
+  if (!user) return withCors(unauthorized(locale));
+  if (!canManageUsers(user.role)) return withCors(forbidden(locale));
 
   const where =
     user.role === UserRole.SUPER_ADMIN
@@ -47,35 +49,24 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const locale = resolveLocaleFromRequest(req);
   const sessionUser = await getApiUser(req);
-  if (!sessionUser) return withCors(unauthorized());
-  if (!canManageUsers(sessionUser.role)) return withCors(forbidden());
+  if (!sessionUser) return withCors(unauthorized(locale));
+  if (!canManageUsers(sessionUser.role)) return withCors(forbidden(locale));
 
   let body: z.infer<typeof createUserSchema>;
   try {
     body = createUserSchema.parse(await req.json());
   } catch (e) {
-    return withCors(
-      NextResponse.json({ error: "Invalid payload", details: e }, { status: 400 })
-    );
+    return withCors(apiError("api.error.invalidPayload", 400, locale, { details: e }));
   }
 
   if (!canCreateRole(sessionUser.role, body.role)) {
-    return withCors(
-      NextResponse.json(
-        { error: "You cannot create an account with this role." },
-        { status: 403 }
-      )
-    );
+    return withCors(apiError("api.users.cannotCreateRole", 403, locale));
   }
 
   if (body.role === UserRole.INSTITUTION_ADMIN && !body.institutionId) {
-    return withCors(
-      NextResponse.json(
-        { error: "An institution is required for an institution admin." },
-        { status: 400 }
-      )
-    );
+    return withCors(apiError("api.users.institutionRequired", 400, locale));
   }
 
   if (body.role !== UserRole.INSTITUTION_ADMIN) {
@@ -88,12 +79,7 @@ export async function POST(req: NextRequest) {
 
   const existing = await prisma.user.findUnique({ where: { email: body.email } });
   if (existing) {
-    return withCors(
-      NextResponse.json(
-        { error: "An account with this email already exists." },
-        { status: 409 }
-      )
-    );
+    return withCors(apiError("api.users.emailExists", 409, locale));
   }
 
   try {
@@ -130,7 +116,14 @@ export async function POST(req: NextRequest) {
 
     return withCors(NextResponse.json(created, { status: 201 }));
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Server error";
-    return withCors(NextResponse.json({ error: message }, { status: 500 }));
+    if (err instanceof Error) {
+      return withCors(
+        NextResponse.json(
+          { error: err.message },
+          { status: 500, headers: { "Content-Language": locale } }
+        )
+      );
+    }
+    return withCors(apiError("api.error.serverError", 500, locale));
   }
 }

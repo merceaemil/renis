@@ -136,6 +136,33 @@ docker compose exec keycloak /opt/keycloak/bin/kcadm.sh update \
 
 Then sign out of Keycloak and retry TYPO3 login (old tokens still lack `openid`).
 
+## Multi-language (English + French)
+
+The realm is configured for `internationalizationEnabled=true` with `supportedLocales=["en","fr"]` and `defaultLocale=en`. The `renis` login and email themes ship `messages_en.properties` and `messages_fr.properties`.
+
+| Where | Mechanism |
+|-------|-----------|
+| Fresh Keycloak DB | `realm-renis.json` (i18n keys read on first import) |
+| Existing realm | `keycloak-config` re-applies `internationalizationEnabled`, `supportedLocales`, `defaultLocale` on every `docker compose up` |
+| Management app → Keycloak | `signIn("keycloak", { callbackUrl }, { kc_locale, ui_locales })` (login page) — Keycloak stores the choice as a user attribute and reuses it for emails |
+| Forgot-password link | URL includes `kc_locale=<lang>` and `ui_locales=<lang>` |
+| Keycloak login UI | Built-in locale selector (top-right) renders automatically because `locales=en,fr` is set in `theme.properties` |
+
+Override via env (read by `configure-realm-scopes.sh`):
+
+```env
+KEYCLOAK_I18N_ENABLED=true
+KEYCLOAK_I18N_SUPPORTED_LOCALES=en,fr
+KEYCLOAK_I18N_DEFAULT_LOCALE=en
+```
+
+To add a new language `xx`:
+
+1. Add it to `supportedLocales` in `realm-renis.json` and `KEYCLOAK_I18N_SUPPORTED_LOCALES`.
+2. Add it to `locales=` in `themes/renis/login/theme.properties` and `themes/renis/email/theme.properties`.
+3. Create `themes/renis/login/messages/messages_xx.properties` and `themes/renis/email/messages/messages_xx.properties`.
+4. `docker compose restart keycloak && docker compose run --rm keycloak-config`.
+
 ## Branded login page (theme `renis`)
 
 The Keycloak hosted login pages (sign-in, forgot password, set password, account console) are themed to match the RENIS-BI management UI:

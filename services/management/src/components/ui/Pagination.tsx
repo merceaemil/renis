@@ -5,6 +5,7 @@ import {
   PAGE_SIZE_OPTIONS,
   type PageSizeOption,
 } from "@renis/core/pagination";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type PaginationProps = {
   page: number;
@@ -25,6 +26,7 @@ export function Pagination({
   onPageSizeChange,
   className = "",
 }: PaginationProps) {
+  const t = useT();
   if (total === 0) return null;
 
   const start = (page - 1) * pageSize + 1;
@@ -35,13 +37,15 @@ export function Pagination({
       className={`flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/80 px-4 py-3 text-sm ${className}`}
     >
       <p className="text-slate-600">
-        Showing <span className="font-medium text-slate-900">{start}</span>–
-        <span className="font-medium text-slate-900">{end}</span> of{" "}
+        {t("pagination.showing")}{" "}
+        <span className="font-medium text-slate-900">{start}</span>–
+        <span className="font-medium text-slate-900">{end}</span>{" "}
+        {t("pagination.of")}{" "}
         <span className="font-medium text-slate-900">{total}</span>
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-slate-600">
-          <span className="text-xs">Per page</span>
+          <span className="text-xs">{t("pagination.perPage")}</span>
           <select
             className="renis-input py-1.5 w-auto min-w-[4.5rem]"
             value={pageSize}
@@ -62,7 +66,7 @@ export function Pagination({
             className="renis-btn-secondary px-2.5 py-1.5 disabled:opacity-40"
             disabled={page <= 1}
             onClick={() => onPageChange(page - 1)}
-            aria-label="Previous page"
+            aria-label={t("pagination.previous")}
           >
             ←
           </button>
@@ -74,7 +78,7 @@ export function Pagination({
             className="renis-btn-secondary px-2.5 py-1.5 disabled:opacity-40"
             disabled={page >= totalPages}
             onClick={() => onPageChange(page + 1)}
-            aria-label="Next page"
+            aria-label={t("pagination.next")}
           >
             →
           </button>

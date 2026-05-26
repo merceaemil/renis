@@ -6,7 +6,7 @@ import { prisma, Semester } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { institutionListWhere, resolveInstitutionId } from "@/lib/scope";
 import { paginatedQuery } from "@/lib/prisma-pagination";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const subjectSchema = z.object({
   name: z.string().min(1),
@@ -59,17 +59,12 @@ export async function POST(req: NextRequest) {
   try {
     body = createSchema.parse(await req.json());
   } catch {
-    return withCors(NextResponse.json({ error: "Invalid payload" }, { status: 400 }));
+    return withCors(apiError("api.error.invalidPayload", 400));
   }
 
   const institutionId = resolveInstitutionId(user, body.institutionId);
   if (!institutionId) {
-    return withCors(
-      NextResponse.json(
-        { error: "institutionId is required for this action." },
-        { status: 400 }
-      )
-    );
+    return withCors(apiError("api.error.institutionIdRequired", 400));
   }
 
   const existing = await prisma.programme.findUnique({
@@ -79,7 +74,7 @@ export async function POST(req: NextRequest) {
   });
   if (existing) {
     return withCors(
-      NextResponse.json({ error: "Programme code already exists." }, { status: 409 })
+      apiError("api.programmes.codeExists", 409)
     );
   }
 

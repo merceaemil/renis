@@ -4,7 +4,7 @@ import { logAudit } from "@renis/core";
 import { canManageGrades } from "@renis/core/permissions";
 import { prisma, UserRole } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const enrollSchema = z.object({
   studentIds: z.array(z.string().uuid()).min(1),
@@ -34,7 +34,7 @@ export async function GET(
 
   const programme = await loadProgramme(id, user);
   if (!programme) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
 
   const enrollments = await prisma.programmeEnrollment.findMany({
@@ -76,12 +76,12 @@ export async function POST(
   try {
     body = enrollSchema.parse(await req.json());
   } catch {
-    return withCors(NextResponse.json({ error: "Invalid payload" }, { status: 400 }));
+    return withCors(apiError("api.error.invalidPayload", 400));
   }
 
   const programme = await loadProgramme(id, user);
   if (!programme) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
 
   const students = await prisma.student.findMany({
@@ -94,7 +94,7 @@ export async function POST(
   });
   if (students.length !== body.studentIds.length) {
     return withCors(
-      NextResponse.json({ error: "One or more students not found." }, { status: 400 })
+      apiError("api.enrollments.studentsNotFound", 400)
     );
   }
 
@@ -141,13 +141,13 @@ export async function DELETE(
   const studentId = req.nextUrl.searchParams.get("studentId");
   if (!studentId) {
     return withCors(
-      NextResponse.json({ error: "studentId query required" }, { status: 400 })
+      apiError("api.enrollments.studentIdRequired", 400)
     );
   }
 
   const programme = await loadProgramme(id, user);
   if (!programme) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
 
   await prisma.programmeEnrollment.updateMany({

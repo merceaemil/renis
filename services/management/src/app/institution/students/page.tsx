@@ -19,6 +19,7 @@ import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { withInstitutionQuery } from "@/lib/api-scope-query";
 import { apiFetch } from "@/lib/api";
 import { listApiUrl, normalizeListResponse } from "@/lib/list-response";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type Student = {
   id: string;
@@ -72,10 +73,11 @@ function StudentFormFields({
   setForm: (next: StudentFormState) => void;
   idPrefix: string;
 }) {
+  const t = useT();
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <label className="block text-sm">
-        <span className="text-slate-600">Student ID</span>
+        <span className="text-slate-600">{t("students.field.id")}</span>
         <input
           required
           className="renis-input mt-1 font-mono"
@@ -86,7 +88,7 @@ function StudentFormFields({
         />
       </label>
       <label className="block text-sm">
-        <span className="text-slate-600">Date of birth</span>
+        <span className="text-slate-600">{t("students.field.dob")}</span>
         <input
           type="date"
           className="renis-input mt-1"
@@ -95,7 +97,9 @@ function StudentFormFields({
         />
       </label>
       <label className="block text-sm">
-        <span className="text-slate-600">First name</span>
+        <span className="text-slate-600">
+          {t("students.field.firstName")}
+        </span>
         <input
           required
           className="renis-input mt-1"
@@ -104,7 +108,7 @@ function StudentFormFields({
         />
       </label>
       <label className="block text-sm">
-        <span className="text-slate-600">Last name</span>
+        <span className="text-slate-600">{t("students.field.lastName")}</span>
         <input
           required
           className="renis-input mt-1"
@@ -121,9 +125,7 @@ function StudentFormFields({
             setForm({ ...form, nameConsent: e.target.checked })
           }
         />
-        <span className="text-slate-600">
-          Consent to display full name on public diploma verification
-        </span>
+        <span className="text-slate-600">{t("students.consentLabel")}</span>
       </label>
     </div>
   );
@@ -132,6 +134,7 @@ function StudentFormFields({
 export default function StudentsPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Student | null>(null);
   const [detailTarget, setDetailTarget] = useState<Student | null>(null);
@@ -155,7 +158,7 @@ export default function StudentsPage() {
         scopeId
       );
       const res = await apiFetch(url, { accessToken: session.accessToken });
-      if (!res.ok) throw new Error("Could not load students");
+      if (!res.ok) throw new Error(t("students.couldNotLoad"));
       return normalizeListResponse<Student>(await res.json());
     },
     [session?.accessToken, scopeId]
@@ -193,7 +196,7 @@ export default function StudentsPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Update failed");
+      setError(data.error ?? t("users.updateFailed"));
       return null;
     }
     return data as Student;
@@ -216,12 +219,12 @@ export default function StudentsPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Creation failed");
+      setError(data.error ?? t("users.createFailed"));
       return;
     }
     setCreateOpen(false);
     setForm(emptyForm);
-    setMessage("Student created.");
+    setMessage(t("students.created"));
     await reload();
   }
 
@@ -241,7 +244,11 @@ export default function StudentsPage() {
     setSaving(false);
     if (!updated) return;
     setEditTarget(null);
-    setMessage(`Updated ${updated.firstName} ${updated.lastName}.`);
+    setMessage(
+      t("students.updated", {
+        name: `${updated.firstName} ${updated.lastName}`,
+      })
+    );
     await reload();
   }
 
@@ -258,28 +265,32 @@ export default function StudentsPage() {
       setEditForm((f) => ({ ...f, nameConsent: updated.nameConsent }));
     }
     setMessage(
-      updated.nameConsent ? "Name consent granted." : "Name consent revoked."
+      updated.nameConsent
+        ? t("students.consentGranted")
+        : t("students.consentRevoked")
     );
     await reload();
   }
 
   function rowMenuItems(s: Student) {
     return [
-      { label: "View details", onClick: () => setDetailTarget(s) },
-      { label: "Edit student", onClick: () => openEdit(s) },
+      { label: t("common.viewDetails"), onClick: () => setDetailTarget(s) },
+      { label: t("students.editStudent"), onClick: () => openEdit(s) },
       {
-        label: s.nameConsent ? "Revoke name consent" : "Grant name consent",
+        label: s.nameConsent
+          ? t("students.revokeConsent")
+          : t("students.grantConsent"),
         onClick: () => void toggleConsent(s),
       },
     ];
   }
 
   return (
-    <AppShell title="Students">
+    <AppShell title={t("students.title")}>
       <InstitutionScopeBar onChange={setScopeId} />
 
       <PageHeader
-        description="Register and maintain students for your institution. Name consent controls whether the full name appears on public diploma verification."
+        description={t("students.description")}
         actions={
           <button
             type="button"
@@ -289,7 +300,7 @@ export default function StudentsPage() {
               setCreateOpen(true);
             }}
           >
-            Add student
+            {t("students.add")}
           </button>
         }
       />
@@ -304,7 +315,7 @@ export default function StudentsPage() {
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Add student"
+        title={t("students.addTitle")}
         footer={
           <div className="flex justify-end gap-2">
             <button
@@ -312,10 +323,10 @@ export default function StudentsPage() {
               className="renis-btn-secondary"
               onClick={() => setCreateOpen(false)}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button type="submit" form="student-create-form" className="renis-btn-primary">
-              Save student
+              {t("students.saveStudent")}
             </button>
           </div>
         }
@@ -332,7 +343,7 @@ export default function StudentsPage() {
       <Modal
         open={!!editTarget}
         onClose={() => !saving && setEditTarget(null)}
-        title="Edit student"
+        title={t("students.editTitle")}
         description={editTarget ? editTarget.studentIdNumber : undefined}
         footer={
           <div className="flex justify-end gap-2">
@@ -342,7 +353,7 @@ export default function StudentsPage() {
               disabled={saving}
               onClick={() => setEditTarget(null)}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
@@ -350,7 +361,7 @@ export default function StudentsPage() {
               disabled={saving}
               className="renis-btn-primary disabled:opacity-50"
             >
-              {saving ? "Saving…" : "Save changes"}
+              {saving ? t("common.saving") : t("common.saveChanges")}
             </button>
           </div>
         }
@@ -370,7 +381,7 @@ export default function StudentsPage() {
         title={
           detailTarget
             ? `${detailTarget.firstName} ${detailTarget.lastName}`
-            : "Student"
+            : t("students.detailTitle")
         }
         description={detailTarget?.studentIdNumber}
         footer={
@@ -381,14 +392,14 @@ export default function StudentsPage() {
                 className="renis-btn-secondary"
                 onClick={() => setDetailTarget(null)}
               >
-                Close
+                {t("common.close")}
               </button>
               <button
                 type="button"
                 className="renis-btn-secondary"
                 onClick={() => openEdit(detailTarget)}
               >
-                Edit
+                {t("common.edit")}
               </button>
               <button
                 type="button"
@@ -396,8 +407,8 @@ export default function StudentsPage() {
                 onClick={() => void toggleConsent(detailTarget)}
               >
                 {detailTarget.nameConsent
-                  ? "Revoke name consent"
-                  : "Grant name consent"}
+                  ? t("students.revokeConsent")
+                  : t("students.grantConsent")}
               </button>
             </div>
           ) : null
@@ -406,23 +417,29 @@ export default function StudentsPage() {
         {detailTarget ? (
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-slate-500">Student ID</dt>
+              <dt className="text-slate-500">{t("students.field.id")}</dt>
               <dd className="font-mono text-slate-900">{detailTarget.studentIdNumber}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Date of birth</dt>
+              <dt className="text-slate-500">{t("students.field.dob")}</dt>
               <dd className="text-slate-900">
                 {detailTarget.dateOfBirth
                   ? new Date(detailTarget.dateOfBirth).toLocaleDateString()
-                  : "—"}
+                  : t("common.dash")}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Name consent</dt>
+              <dt className="text-slate-500">
+                {t("students.field.nameConsent")}
+              </dt>
               <dd>
                 <StatusBadge
                   status={detailTarget.nameConsent ? "ACTIVE" : "INACTIVE"}
-                  label={detailTarget.nameConsent ? "Granted" : "Not granted"}
+                  label={
+                    detailTarget.nameConsent
+                      ? t("status.Granted")
+                      : t("status.NotGranted")
+                  }
                 />
               </dd>
             </div>
@@ -431,10 +448,10 @@ export default function StudentsPage() {
       </Modal>
 
       {loading ? (
-        <p className="text-slate-500 py-8">Loading…</p>
+        <p className="text-slate-500 py-8">{t("common.loading")}</p>
       ) : total === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-          No students yet. Add one to get started.
+          {t("students.empty")}
         </div>
       ) : (
         <PaginatedTable
@@ -448,10 +465,18 @@ export default function StudentsPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-600">
               <tr>
-                <th className="px-4 py-3 font-medium">ID</th>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">DOB</th>
-                <th className="px-4 py-3 font-medium">Consent</th>
+                <th className="px-4 py-3 font-medium">
+                  {t("students.field.id")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("students.field.name")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("students.field.dobShort")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("students.field.consent")}
+                </th>
                 <th className="px-4 py-3 w-12" />
               </tr>
             </thead>
@@ -471,17 +496,17 @@ export default function StudentsPage() {
                   <td className="px-4 py-3 text-slate-600">
                     {s.dateOfBirth
                       ? new Date(s.dateOfBirth).toLocaleDateString()
-                      : "—"}
+                      : t("common.dash")}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge
                       status={s.nameConsent ? "ACTIVE" : "INACTIVE"}
-                      label={s.nameConsent ? "Yes" : "No"}
+                      label={s.nameConsent ? t("common.yes") : t("common.no")}
                     />
                   </td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <RowMenu
-                      label={`Actions for ${s.firstName}`}
+                      label={t("common.actionsFor", { target: s.firstName })}
                       items={rowMenuItems(s)}
                     />
                   </td>

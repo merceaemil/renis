@@ -15,6 +15,8 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { apiFetch } from "@/lib/api";
 import { listApiUrl, normalizeListResponse } from "@/lib/list-response";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import type { TranslationKey } from "@/lib/i18n";
 
 type UserRow = {
   id: string;
@@ -28,15 +30,16 @@ type UserRow = {
 
 type Institution = { id: string; name: string; code: string };
 
-const roleOptions: { value: UserRole; label: string }[] = [
-  { value: UserRole.SUPER_ADMIN, label: "Super Admin" },
-  { value: UserRole.MINISTRY_ADMIN, label: "Ministry Admin" },
-  { value: UserRole.INSTITUTION_ADMIN, label: "Institution Admin" },
+const roleOptions: { value: UserRole; labelKey: TranslationKey }[] = [
+  { value: UserRole.SUPER_ADMIN, labelKey: "role.SUPER_ADMIN" },
+  { value: UserRole.MINISTRY_ADMIN, labelKey: "role.MINISTRY_ADMIN" },
+  { value: UserRole.INSTITUTION_ADMIN, labelKey: "role.INSTITUTION_ADMIN" },
 ];
 
 export default function UsersPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -63,7 +66,7 @@ export default function UsersPage() {
       const res = await apiFetch(listApiUrl("/api/users", page, pageSize), {
         accessToken: session.accessToken,
       });
-      if (!res.ok) throw new Error("Could not load users");
+      if (!res.ok) throw new Error(t("users.couldNotLoad"));
       return normalizeListResponse<UserRow>(await res.json());
     },
     [session?.accessToken]
@@ -113,7 +116,7 @@ export default function UsersPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Creation failed");
+      setError(data.error ?? t("users.createFailed"));
       return;
     }
     setCreateOpen(false);
@@ -140,7 +143,7 @@ export default function UsersPage() {
     });
     if (!res.ok) {
       const data = await res.json();
-      setError(data.error ?? "Update failed");
+      setError(data.error ?? t("users.updateFailed"));
       return;
     }
     if (detailTarget?.id === user.id) {
@@ -154,16 +157,16 @@ export default function UsersPage() {
     : roleOptions.filter((r) => r.value === UserRole.INSTITUTION_ADMIN);
 
   return (
-    <AppShell title="User accounts">
+    <AppShell title={t("users.title")}>
       <PageHeader
-        description="All accounts are created here: Keycloak provisioning, RENIS database record, then invitation email with a temporary password."
+        description={t("users.description")}
         actions={
           <button
             type="button"
             className="renis-btn-primary"
             onClick={() => setCreateOpen(true)}
           >
-            Create account
+            {t("users.create")}
           </button>
         }
       />
@@ -177,22 +180,22 @@ export default function UsersPage() {
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Create account"
+        title={t("users.createTitle")}
         size="lg"
         footer={
           <div className="flex justify-end gap-2">
             <button type="button" className="renis-btn-secondary" onClick={() => setCreateOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </button>
             <button type="submit" form="user-create-form" className="renis-btn-primary">
-              Create and send invitation
+              {t("users.createSubmit")}
             </button>
           </div>
         }
       >
         <form id="user-create-form" className="grid gap-4 md:grid-cols-2" onSubmit={handleCreate}>
           <label className="block text-sm">
-            <span className="text-slate-600">Email</span>
+            <span className="text-slate-600">{t("users.field.email")}</span>
             <input
               required
               type="email"
@@ -202,7 +205,7 @@ export default function UsersPage() {
             />
           </label>
           <label className="block text-sm">
-            <span className="text-slate-600">First name</span>
+            <span className="text-slate-600">{t("users.field.firstName")}</span>
             <input
               required
               className="renis-input mt-1"
@@ -211,7 +214,7 @@ export default function UsersPage() {
             />
           </label>
           <label className="block text-sm">
-            <span className="text-slate-600">Last name</span>
+            <span className="text-slate-600">{t("users.field.lastName")}</span>
             <input
               required
               className="renis-input mt-1"
@@ -220,7 +223,7 @@ export default function UsersPage() {
             />
           </label>
           <label className="block text-sm">
-            <span className="text-slate-600">Role</span>
+            <span className="text-slate-600">{t("users.field.role")}</span>
             <select
               className="renis-input mt-1"
               value={form.role}
@@ -230,14 +233,16 @@ export default function UsersPage() {
             >
               {availableRoles.map((r) => (
                 <option key={r.value} value={r.value}>
-                  {r.label}
+                  {t(r.labelKey)}
                 </option>
               ))}
             </select>
           </label>
           {form.role === UserRole.INSTITUTION_ADMIN && isSuperAdmin && (
             <label className="block text-sm md:col-span-2">
-              <span className="text-slate-600">Institution</span>
+              <span className="text-slate-600">
+                {t("users.field.institution")}
+              </span>
               <select
                 required
                 className="renis-input mt-1"
@@ -246,7 +251,7 @@ export default function UsersPage() {
                   setForm({ ...form, institutionId: e.target.value })
                 }
               >
-                <option value="">— Select —</option>
+                <option value="">{t("users.selectInstitution")}</option>
                 {institutions.map((i) => (
                   <option key={i.id} value={i.id}>
                     {i.name} ({i.code})
@@ -264,14 +269,14 @@ export default function UsersPage() {
         title={
           detailTarget
             ? `${detailTarget.firstName} ${detailTarget.lastName}`
-            : "User"
+            : t("students.detailTitle")
         }
         description={detailTarget?.email}
         footer={
           detailTarget ? (
             <div className="flex justify-end gap-2">
               <button type="button" className="renis-btn-secondary" onClick={() => setDetailTarget(null)}>
-                Close
+                {t("common.close")}
               </button>
               <button
                 type="button"
@@ -283,8 +288,8 @@ export default function UsersPage() {
                 onClick={() => void toggleStatus(detailTarget)}
               >
                 {detailTarget.status === UserStatus.ACTIVE
-                  ? "Deactivate"
-                  : "Reactivate"}
+                  ? t("users.deactivate")
+                  : t("users.reactivate")}
               </button>
             </div>
           ) : null
@@ -293,22 +298,28 @@ export default function UsersPage() {
         {detailTarget ? (
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-slate-500">Role</dt>
+              <dt className="text-slate-500">{t("users.field.role")}</dt>
               <dd className="text-slate-900">
-                {roleOptions.find((r) => r.value === detailTarget.role)?.label ??
-                  detailTarget.role}
+                {(() => {
+                  const opt = roleOptions.find(
+                    (r) => r.value === detailTarget.role
+                  );
+                  return opt ? t(opt.labelKey) : detailTarget.role;
+                })()}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Status</dt>
+              <dt className="text-slate-500">{t("users.field.status")}</dt>
               <dd>
                 <StatusBadge status={detailTarget.status} />
               </dd>
             </div>
             <div className="sm:col-span-2">
-              <dt className="text-slate-500">Institution</dt>
+              <dt className="text-slate-500">
+                {t("users.field.institution")}
+              </dt>
               <dd className="text-slate-900">
-                {detailTarget.institution?.name ?? "—"}
+                {detailTarget.institution?.name ?? t("common.dash")}
               </dd>
             </div>
           </dl>
@@ -316,10 +327,10 @@ export default function UsersPage() {
       </Modal>
 
       {loading ? (
-        <p className="text-slate-500 py-8">Loading…</p>
+        <p className="text-slate-500 py-8">{t("common.loading")}</p>
       ) : total === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-          No user accounts yet.
+          {t("users.empty")}
         </div>
       ) : (
         <PaginatedTable
@@ -333,11 +344,21 @@ export default function UsersPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-600">
               <tr>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Email</th>
-                <th className="px-4 py-3 font-medium">Role</th>
-                <th className="px-4 py-3 font-medium">Institution</th>
-                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">
+                  {t("users.field.name")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("users.field.email")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("users.field.role")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("users.field.institution")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("users.field.status")}
+                </th>
                 <th className="px-4 py-3 w-12" />
               </tr>
             </thead>
@@ -353,22 +374,30 @@ export default function UsersPage() {
                   </td>
                   <td className="px-4 py-3 text-slate-600">{u.email}</td>
                   <td className="px-4 py-3">
-                    {roleOptions.find((r) => r.value === u.role)?.label ?? u.role}
+                    {(() => {
+                      const opt = roleOptions.find((r) => r.value === u.role);
+                      return opt ? t(opt.labelKey) : u.role;
+                    })()}
                   </td>
-                  <td className="px-4 py-3">{u.institution?.name ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    {u.institution?.name ?? t("common.dash")}
+                  </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={u.status} />
                   </td>
                   <td className="px-4 py-3">
                     <RowMenu
-                      label={`Actions for ${u.email}`}
+                      label={t("common.actionsFor", { target: u.email })}
                       items={[
-                        { label: "View details", onClick: () => setDetailTarget(u) },
+                        {
+                          label: t("common.viewDetails"),
+                          onClick: () => setDetailTarget(u),
+                        },
                         {
                           label:
                             u.status === UserStatus.ACTIVE
-                              ? "Deactivate"
-                              : "Reactivate",
+                              ? t("users.deactivate")
+                              : t("users.reactivate"),
                           variant:
                             u.status === UserStatus.ACTIVE ? "danger" : "default",
                           onClick: () => void toggleStatus(u),

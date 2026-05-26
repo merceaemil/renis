@@ -13,6 +13,7 @@ import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { apiFetch } from "@/lib/api";
 import { downloadWithAuth } from "@/lib/download";
 import { listApiUrl, normalizeListResponse } from "@/lib/list-response";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type Anomaly = { code: string; message: string; studentId?: string };
 
@@ -58,6 +59,7 @@ type MinistrySession = {
 export default function MinistryPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [statsSummary, setStatsSummary] = useState<StatsSummary | null>(null);
   const [sessionFilter, setSessionFilter] = useState("");
@@ -76,7 +78,7 @@ export default function MinistryPage() {
         listApiUrl("/api/ministry/statistics", page, pageSize),
         { accessToken: session.accessToken }
       );
-      if (!res.ok) throw new Error("Could not load statistics");
+      if (!res.ok) throw new Error(t("ministry.couldNotLoadStats"));
       const data = await res.json();
       setStatsSummary(data.summary as StatsSummary);
       return {
@@ -99,7 +101,7 @@ export default function MinistryPage() {
         sort: sessionSort,
       });
       const res = await apiFetch(url, { accessToken: session.accessToken });
-      if (!res.ok) throw new Error("Could not load submitted sessions");
+      if (!res.ok) throw new Error(t("ministry.couldNotLoadSessions"));
       return normalizeListResponse<MinistrySession>(await res.json());
     },
     [session?.accessToken, sessionFilter, sessionSort]
@@ -112,7 +114,7 @@ export default function MinistryPage() {
         listApiUrl("/api/ministry/diplomas", page, pageSize),
         { accessToken: session.accessToken }
       );
-      if (!res.ok) throw new Error("Could not load diplomas");
+      if (!res.ok) throw new Error(t("ministry.couldNotLoadDiplomas"));
       return normalizeListResponse<MinistryDiploma>(await res.json());
     },
     [session?.accessToken]
@@ -167,7 +169,7 @@ export default function MinistryPage() {
         "national-grades-audit.csv"
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Export failed");
+      setError(e instanceof Error ? e.message : t("ministry.exportFailed"));
     }
   }
 
@@ -180,14 +182,14 @@ export default function MinistryPage() {
         "national-statistics.csv"
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Export failed");
+      setError(e instanceof Error ? e.message : t("ministry.exportFailed"));
     }
   }
 
   return (
-    <AppShell title="Ministry overview">
+    <AppShell title={t("ministry.title")}>
       <PageHeader
-        description="Read-only national audit: submitted grades, diploma records, and aggregated statistics."
+        description={t("ministry.description")}
         actions={
           <>
             <button
@@ -195,14 +197,14 @@ export default function MinistryPage() {
               className="renis-btn-secondary"
               onClick={() => void exportGrades()}
             >
-              Export grades (CSV)
+              {t("ministry.exportGrades")}
             </button>
             <button
               type="button"
               className="renis-btn-secondary"
               onClick={() => void exportStatistics()}
             >
-              Export statistics (CSV)
+              {t("ministry.exportStats")}
             </button>
           </>
         }
@@ -215,24 +217,30 @@ export default function MinistryPage() {
       ) : null}
 
       {initialLoading ? (
-        <p className="text-slate-500 py-8">Loading…</p>
+        <p className="text-slate-500 py-8">{t("common.loading")}</p>
       ) : (
         <>
           <section className="mb-10">
             <h2 className="text-lg font-medium text-slate-900 mb-3">
-              National statistics
+              {t("ministry.nationalStats")}
             </h2>
             {statsSummary ? (
               <p className="text-sm text-slate-600 mb-3">
-                {statsSummary.submittedSessions} submitted session(s) ·{" "}
-                {statsSummary.institutions} institution(s) ·{" "}
-                {statsSummary.totalStudents} student rows
+                {t("ministry.statsSummary", {
+                  sessions: statsSummary.submittedSessions,
+                  institutions: statsSummary.institutions,
+                  students: statsSummary.totalStudents,
+                })}
               </p>
             ) : null}
             {statsLoading ? (
-              <p className="text-slate-500 text-sm">Loading statistics…</p>
+              <p className="text-slate-500 text-sm">
+                {t("ministry.statsLoading")}
+              </p>
             ) : statsTotal === 0 ? (
-              <p className="text-slate-500 text-sm">No data yet.</p>
+              <p className="text-slate-500 text-sm">
+                {t("ministry.statsEmpty")}
+              </p>
             ) : (
               <PaginatedTable
                 page={statsPage}
@@ -245,12 +253,24 @@ export default function MinistryPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 text-left text-slate-600">
                     <tr>
-                      <th className="px-3 py-2 font-medium">Institution</th>
-                      <th className="px-3 py-2 font-medium">Programme</th>
-                      <th className="px-3 py-2 font-medium">Year</th>
-                      <th className="px-3 py-2 font-medium">Sem.</th>
-                      <th className="px-3 py-2 font-medium">Students</th>
-                      <th className="px-3 py-2 font-medium">Avg</th>
+                      <th className="px-3 py-2 font-medium">
+                        {t("ministry.col.institution")}
+                      </th>
+                      <th className="px-3 py-2 font-medium">
+                        {t("ministry.col.programme")}
+                      </th>
+                      <th className="px-3 py-2 font-medium">
+                        {t("ministry.col.year")}
+                      </th>
+                      <th className="px-3 py-2 font-medium">
+                        {t("ministry.col.sem")}
+                      </th>
+                      <th className="px-3 py-2 font-medium">
+                        {t("ministry.col.students")}
+                      </th>
+                      <th className="px-3 py-2 font-medium">
+                        {t("ministry.col.avg")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -262,7 +282,7 @@ export default function MinistryPage() {
                         <td className="px-3 py-2">{r.semester}</td>
                         <td className="px-3 py-2">{r.studentCount}</td>
                         <td className="px-3 py-2">
-                          {r.sessionAverage ?? "—"}
+                          {r.sessionAverage ?? t("common.dash")}
                         </td>
                       </tr>
                     ))}
@@ -273,12 +293,12 @@ export default function MinistryPage() {
           </section>
 
           <h2 className="text-lg font-medium text-slate-900 mb-3">
-            Submitted grade sessions
+            {t("ministry.submittedSessions")}
           </h2>
           <div className="mb-3 flex flex-wrap gap-3 text-sm">
             <input
               type="search"
-              placeholder="Filter institution or programme…"
+              placeholder={t("ministry.filterSession")}
               className="renis-input max-w-xs"
               value={sessionFilter}
               onChange={(e) => setSessionFilter(e.target.value)}
@@ -290,17 +310,21 @@ export default function MinistryPage() {
                 setSessionSort(e.target.value as "date" | "institution")
               }
             >
-              <option value="date">Sort by submitted date</option>
-              <option value="institution">Sort by institution</option>
+              <option value="date">{t("ministry.sortByDate")}</option>
+              <option value="institution">
+                {t("ministry.sortByInstitution")}
+              </option>
             </select>
           </div>
           {sessionsLoading ? (
-            <p className="text-slate-500 mb-10 text-sm">Loading sessions…</p>
+            <p className="text-slate-500 mb-10 text-sm">
+              {t("ministry.sessionsLoading")}
+            </p>
           ) : sessionsTotal === 0 ? (
             <p className="text-slate-500 mb-10">
               {sessionFilter.trim()
-                ? "No sessions match your filter."
-                : "No submitted grade sessions yet."}
+                ? t("ministry.sessionsNoMatch")
+                : t("ministry.sessionsEmpty")}
             </p>
           ) : (
             <div className="mb-10">
@@ -315,11 +339,21 @@ export default function MinistryPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 text-left text-slate-600">
                     <tr>
-                      <th className="px-4 py-3 font-medium">Institution</th>
-                      <th className="px-4 py-3 font-medium">Programme</th>
-                      <th className="px-4 py-3 font-medium">Period</th>
-                      <th className="px-4 py-3 font-medium">Grades</th>
-                      <th className="px-4 py-3 font-medium">Anomalies</th>
+                      <th className="px-4 py-3 font-medium">
+                        {t("ministry.col.institution")}
+                      </th>
+                      <th className="px-4 py-3 font-medium">
+                        {t("ministry.col.programme")}
+                      </th>
+                      <th className="px-4 py-3 font-medium">
+                        {t("ministry.col.period")}
+                      </th>
+                      <th className="px-4 py-3 font-medium">
+                        {t("ministry.col.grades")}
+                      </th>
+                      <th className="px-4 py-3 font-medium">
+                        {t("ministry.col.anomalies")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -346,10 +380,14 @@ export default function MinistryPage() {
                         <td className="px-4 py-3">{s.gradeCount}</td>
                         <td className="px-4 py-3">
                           {s.anomalies.length === 0 ? (
-                            <span className="text-green-700 text-xs">None</span>
+                            <span className="text-green-700 text-xs">
+                              {t("ministry.anomaliesNone")}
+                            </span>
                           ) : (
                             <span className="text-amber-800 text-xs">
-                              {s.anomalies.length} flagged
+                              {t("ministry.anomaliesFlagged", {
+                                count: s.anomalies.length,
+                              })}
                             </span>
                           )}
                         </td>
@@ -362,12 +400,14 @@ export default function MinistryPage() {
           )}
 
           <h2 className="text-lg font-medium text-slate-900 mb-3">
-            Diplomas (submitted & published)
+            {t("ministry.diplomasHeading")}
           </h2>
           {diplomasLoading ? (
-            <p className="text-slate-500 text-sm">Loading diplomas…</p>
+            <p className="text-slate-500 text-sm">
+              {t("ministry.diplomasLoading")}
+            </p>
           ) : diplomasTotal === 0 ? (
-            <p className="text-slate-500">No diplomas submitted yet.</p>
+            <p className="text-slate-500">{t("ministry.diplomasEmpty")}</p>
           ) : (
             <PaginatedTable
               page={diplomasPage}
@@ -380,11 +420,21 @@ export default function MinistryPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-left text-slate-600">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Institution</th>
-                    <th className="px-4 py-3 font-medium">Student</th>
-                    <th className="px-4 py-3 font-medium">Diploma</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Submitted</th>
+                    <th className="px-4 py-3 font-medium">
+                      {t("ministry.col.institution")}
+                    </th>
+                    <th className="px-4 py-3 font-medium">
+                      {t("ministry.col.student")}
+                    </th>
+                    <th className="px-4 py-3 font-medium">
+                      {t("ministry.col.diploma")}
+                    </th>
+                    <th className="px-4 py-3 font-medium">
+                      {t("ministry.col.status")}
+                    </th>
+                    <th className="px-4 py-3 font-medium">
+                      {t("ministry.col.submitted")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -405,7 +455,7 @@ export default function MinistryPage() {
                       <td className="px-4 py-3 text-slate-600">
                         {d.submittedAt
                           ? new Date(d.submittedAt).toLocaleString()
-                          : "—"}
+                          : t("common.dash")}
                       </td>
                     </tr>
                   ))}

@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { normalizeListResponse } from "@/lib/list-response";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 const STORAGE_KEY = "renis-super-admin-institution-id";
 
@@ -21,6 +22,7 @@ export function InstitutionScopeBar({
   onChange?: (institutionId: string) => void;
 }) {
   const { data: session } = useSession();
+  const t = useT();
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [selected, setSelected] = useState(() =>
     typeof window !== "undefined" ? readScopedInstitutionId() : ""
@@ -48,7 +50,7 @@ export function InstitutionScopeBar({
 
   return (
     <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
-      <span className="text-amber-900 font-medium">Institution scope</span>
+      <span className="text-amber-900 font-medium">{t("scope.title")}</span>
       <select
         className="rounded border border-amber-300 bg-white px-3 py-1.5 min-w-[220px]"
         value={selected}
@@ -59,16 +61,14 @@ export function InstitutionScopeBar({
           else sessionStorage.removeItem(STORAGE_KEY);
         }}
       >
-        <option value="">All institutions</option>
+        <option value="">{t("scope.all")}</option>
         {institutions.map((i) => (
           <option key={i.id} value={i.id}>
             {i.name} ({i.code})
           </option>
         ))}
       </select>
-      <span className="text-amber-800 text-xs">
-        Lists respect this filter. Pick one institution before creating records.
-      </span>
+      <span className="text-amber-800 text-xs">{t("scope.hint")}</span>
     </div>
   );
 }

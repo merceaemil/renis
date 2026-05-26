@@ -128,8 +128,7 @@ button.btn-primary:hover,
 /* Secondary links (e.g. "Forgot Password?", "Back to Login"). */
 .login-pf-page a,
 .pf-v5-c-login__main a,
-#kc-info a,
-#kc-current-locale-link {
+#kc-info a {
   color: var(--renis-primary);
 }
 
@@ -172,9 +171,99 @@ input.pf-c-form-control:focus,
   grid-template-columns: 100% !important;
 }
 
-/* Footer / locale switcher — subtle on the dark gradient. */
-.login-pf-page-footer,
-#kc-locale {
+/* ---------------------------------------------------------------------------
+   Locale switcher — Keycloak 26 emits a native <select id="login-select-toggle">
+   inside .pf-v5-c-login__main-header-utilities (login card header).
+
+   js/renis-locale.js (loaded via theme.properties scripts=):
+     1. Builds a <div class="renis-locale-floater"><div class="renis-locale-seg">…</div></div>
+        from the <option>s and appends it to <body>, fixed in the top-right.
+     2. Removes the original select + its header-utilities slot from the card.
+
+   If JS is disabled the native <select> stays in the card header and is
+   styled minimally as a fallback.
+   --------------------------------------------------------------------------- */
+
+/* Floating wrapper — fixed in the top-right of the page. */
+.renis-locale-floater {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+/* Segmented EN/FR group inside the floater. */
+.renis-locale-seg {
+  display: inline-flex;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.18);
+  padding: 2px;
+  margin: 0;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.renis-locale-seg__item {
+  display: inline-block;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 4px;
+  color: #475569; /* slate-600 */
+  text-decoration: none !important;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.renis-locale-seg__item:hover {
+  color: var(--renis-primary);
+  background: transparent;
+  text-decoration: none !important;
+}
+
+.renis-locale-seg__item.is-active,
+.renis-locale-seg__item[aria-current="true"] {
+  background: var(--renis-primary);
+  color: #ffffff;
+}
+
+/* ---------- Fallback (JS disabled): minimal styling of the native <select> -- */
+
+/* Native form-control wrapper that holds the select (default Keycloak markup). */
+.pf-v5-c-login__main-header-utilities .pf-v5-c-form-control {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  min-height: 0;
+}
+
+.pf-v5-c-login__main-header-utilities select#login-select-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0.25rem 1.75rem 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--renis-primary);
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  position: static !important;
+}
+
+.pf-v5-c-login__main-header-utilities .pf-v5-c-form-control__utilities {
+  display: none;
+}
+
+/* Footer locale switcher (used on some info pages outside the card). */
+.login-pf-page-footer {
   color: rgba(255, 255, 255, 0.75);
 }
 

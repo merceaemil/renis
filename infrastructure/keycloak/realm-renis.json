@@ -10,6 +10,9 @@
   "bruteForceProtected": true,
   "loginTheme": "renis",
   "emailTheme": "renis",
+  "internationalizationEnabled": true,
+  "supportedLocales": ["en", "fr"],
+  "defaultLocale": "en",
   "smtpServer": {
     "host": "mailhog",
     "port": "1025",

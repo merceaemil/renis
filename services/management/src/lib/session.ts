@@ -1,7 +1,16 @@
 import { getKeycloakInternalIssuer, getKeycloakPublicIssuer } from "@renis/core/keycloak-url";
+import { tApi, type Locale } from "@renis/core";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { cookies, headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, UserRole, UserStatus } from "@renis/database";
+import {
+  LOCALE_COOKIE,
+  isLocale,
+  parseAcceptLanguage,
+  type Locale as L,
+} from "@/lib/i18n";
+import { resolveLocaleFromRequest } from "@/lib/i18n/server";
 
 export type ApiSessionUser = {
   id: string;
@@ -60,10 +69,52 @@ export async function getApiUser(
   }
 }
 
-export function unauthorized() {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function unauthorized(
+  localeOrReq?: Locale | NextRequest
+): Promise<NextResponse> {
+  const locale = await resolveLocale(localeOrReq);
+  return NextResponse.json(
+    { error: tApi("api.error.unauthorized", locale) },
+    { status: 401, headers: { "Content-Language": locale } }
+  );
 }
 
-export function forbidden() {
-  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+export async function forbidden(
+  localeOrReq?: Locale | NextRequest
+): Promise<NextResponse> {
+  const locale = await resolveLocale(localeOrReq);
+  return NextResponse.json(
+    { error: tApi("api.error.forbidden", locale) },
+    { status: 403, headers: { "Content-Language": locale } }
+  );
+}
+
+export async function apiError(
+  key: string,
+  status: number,
+  localeOrReq?: Locale | NextRequest,
+  extra?: Record<string, unknown>
+): Promise<NextResponse> {
+  const locale = await resolveLocale(localeOrReq);
+  return NextResponse.json(
+    { error: tApi(key, locale), ...extra },
+    { status, headers: { "Content-Language": locale } }
+  );
+}
+
+async function resolveLocale(
+  localeOrReq?: Locale | NextRequest
+): Promise<Locale> {
+  if (typeof localeOrReq === "string") return localeOrReq;
+  if (localeOrReq) return resolveLocaleFromRequest(localeOrReq);
+  // No explicit request — try the ambient request via next/headers.
+  try {
+    const cookieStore = await cookies();
+    const cookieLang = cookieStore.get(LOCALE_COOKIE)?.value;
+    if (cookieLang && isLocale(cookieLang)) return cookieLang as L;
+    const headerStore = await headers();
+    return parseAcceptLanguage(headerStore.get("accept-language"));
+  } catch {
+    return "en";
+  }
 }

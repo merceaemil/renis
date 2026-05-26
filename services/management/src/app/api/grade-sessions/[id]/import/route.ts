@@ -6,7 +6,7 @@ import { GradeStatus, prisma } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { loadGradeSessionGrid } from "@/lib/grade-session-grid";
 import { institutionWhere, sessionInstitutionFilter } from "@/lib/scope";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 type ImportError = { row: number; message: string };
 
@@ -31,11 +31,11 @@ export async function POST(
     sessionInstitutionFilter(user)
   );
   if (!grid) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
   if (grid.session.status !== GradeStatus.DRAFT) {
     return withCors(
-      NextResponse.json({ error: "Session is not editable." }, { status: 409 })
+      apiError("api.gradeSessions.notEditable", 409)
     );
   }
 
@@ -43,7 +43,7 @@ export async function POST(
   const file = formData.get("file");
   if (!(file instanceof File)) {
     return withCors(
-      NextResponse.json({ error: "Missing file upload." }, { status: 400 })
+      apiError("api.gradeSessions.missingFile", 400)
     );
   }
 
@@ -53,7 +53,7 @@ export async function POST(
   const sheet = workbook.worksheets[0];
   if (!sheet) {
     return withCors(
-      NextResponse.json({ error: "Empty spreadsheet." }, { status: 400 })
+      apiError("api.gradeSessions.emptySpreadsheet", 400)
     );
   }
 
@@ -65,10 +65,7 @@ export async function POST(
   const idCol = headers.indexOf("student_id_number");
   if (idCol < 0) {
     return withCors(
-      NextResponse.json(
-        { error: "Missing column: student_id_number" },
-        { status: 400 }
-      )
+      apiError("api.gradeSessions.missingStudentColumn", 400)
     );
   }
 
@@ -83,10 +80,7 @@ export async function POST(
 
   if (subjectCols.length === 0) {
     return withCors(
-      NextResponse.json(
-        { error: "No subject columns matched programme subjects." },
-        { status: 400 }
-      )
+      apiError("api.gradeSessions.noSubjectColumns", 400)
     );
   }
 

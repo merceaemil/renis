@@ -19,6 +19,7 @@ import {
 import { formatAuditMetadata } from "@/lib/audit-action-style";
 import { apiFetch } from "@/lib/api";
 import { listApiUrl, normalizeListResponse } from "@/lib/list-response";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type AuditRow = {
   id: string;
@@ -53,6 +54,7 @@ function countActiveFilters(filters: AuditLogFilters) {
 export default function AuditLogPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
 
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [draft, setDraft] = useState<AuditLogFilters>(EMPTY_FILTERS);
@@ -88,7 +90,7 @@ export default function AuditLogPage() {
         auditFiltersToSearchParams(applied)
       );
       const res = await apiFetch(url, { accessToken: session.accessToken });
-      if (!res.ok) throw new Error("Could not load audit log");
+      if (!res.ok) throw new Error(t("audit.couldNotLoad"));
       return normalizeListResponse<AuditRow>(await res.json());
     },
     [session?.accessToken, applied]
@@ -129,8 +131,8 @@ export default function AuditLogPage() {
   const activeFilterCount = countActiveFilters(applied);
 
   return (
-    <AppShell title="Audit log">
-      <PageHeader description="Immutable record of sensitive actions (spec §6.2). Super Admin only." />
+    <AppShell title={t("audit.title")}>
+      <PageHeader description={t("audit.description")} />
 
       {error ? <Alert variant="error" onDismiss={() => setError(null)}>{error}</Alert> : null}
 
@@ -141,10 +143,10 @@ export default function AuditLogPage() {
           onClick={() => setFiltersOpen((o) => !o)}
         >
           <span>
-            Filters
+            {t("audit.filters")}
             {activeFilterCount > 0 ? (
               <span className="ml-2 rounded-full bg-renis-primary/10 px-2 py-0.5 text-xs text-renis-primary">
-                {activeFilterCount} active
+                {t("audit.filtersActive", { count: activeFilterCount })}
               </span>
             ) : null}
           </span>
@@ -155,7 +157,9 @@ export default function AuditLogPage() {
           <div className="border-t border-slate-100 px-4 pb-4 pt-3">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <label className="block text-sm">
-                <span className="text-slate-600">Action (exact)</span>
+                <span className="text-slate-600">
+                  {t("audit.filter.action")}
+                </span>
                 <select
                   className="renis-input mt-1"
                   value={draft.action ?? ""}
@@ -163,7 +167,7 @@ export default function AuditLogPage() {
                     setDraft({ ...draft, action: e.target.value, actionContains: "" })
                   }
                 >
-                  <option value="">All actions</option>
+                  <option value="">{t("audit.filter.actionAll")}</option>
                   {meta.actions.map((a) => (
                     <option key={a} value={a}>
                       {a}
@@ -173,11 +177,13 @@ export default function AuditLogPage() {
               </label>
 
               <label className="block text-sm">
-                <span className="text-slate-600">Action contains</span>
+                <span className="text-slate-600">
+                  {t("audit.filter.actionContains")}
+                </span>
                 <input
                   type="search"
                   className="renis-input mt-1 font-mono text-xs"
-                  placeholder="e.g. DIPLOMA"
+                  placeholder={t("audit.filter.actionContainsPlaceholder")}
                   value={draft.actionContains ?? ""}
                   disabled={Boolean(draft.action)}
                   onChange={(e) =>
@@ -187,7 +193,9 @@ export default function AuditLogPage() {
               </label>
 
               <label className="block text-sm">
-                <span className="text-slate-600">Entity type</span>
+                <span className="text-slate-600">
+                  {t("audit.filter.entityType")}
+                </span>
                 <select
                   className="renis-input mt-1"
                   value={draft.entityType ?? ""}
@@ -195,39 +203,43 @@ export default function AuditLogPage() {
                     setDraft({ ...draft, entityType: e.target.value })
                   }
                 >
-                  <option value="">All types</option>
-                  {meta.entityTypes.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
+                  <option value="">{t("audit.filter.entityTypeAll")}</option>
+                  {meta.entityTypes.map((typeName) => (
+                    <option key={typeName} value={typeName}>
+                      {typeName}
                     </option>
                   ))}
                 </select>
               </label>
 
               <label className="block text-sm">
-                <span className="text-slate-600">Actor email</span>
+                <span className="text-slate-600">
+                  {t("audit.filter.actor")}
+                </span>
                 <input
                   type="search"
                   className="renis-input mt-1"
-                  placeholder="Contains…"
+                  placeholder={t("audit.filter.contains")}
                   value={draft.actor ?? ""}
                   onChange={(e) => setDraft({ ...draft, actor: e.target.value })}
                 />
               </label>
 
               <label className="block text-sm">
-                <span className="text-slate-600">Entity ID</span>
+                <span className="text-slate-600">
+                  {t("audit.filter.entityId")}
+                </span>
                 <input
                   type="search"
                   className="renis-input mt-1 font-mono text-xs"
-                  placeholder="UUID prefix…"
+                  placeholder={t("audit.filter.uuidPrefix")}
                   value={draft.entityId ?? ""}
                   onChange={(e) => setDraft({ ...draft, entityId: e.target.value })}
                 />
               </label>
 
               <label className="block text-sm">
-                <span className="text-slate-600">From date</span>
+                <span className="text-slate-600">{t("audit.filter.from")}</span>
                 <input
                   type="date"
                   className="renis-input mt-1"
@@ -237,7 +249,7 @@ export default function AuditLogPage() {
               </label>
 
               <label className="block text-sm">
-                <span className="text-slate-600">To date</span>
+                <span className="text-slate-600">{t("audit.filter.to")}</span>
                 <input
                   type="date"
                   className="renis-input mt-1"
@@ -249,10 +261,10 @@ export default function AuditLogPage() {
 
             <div className="mt-4 flex flex-wrap gap-2">
               <button type="button" className="renis-btn-primary" onClick={applyFilters}>
-                Apply filters
+                {t("audit.filter.apply")}
               </button>
               <button type="button" className="renis-btn-secondary" onClick={clearFilters}>
-                Clear all
+                {t("audit.filter.clear")}
               </button>
             </div>
           </div>
@@ -262,7 +274,7 @@ export default function AuditLogPage() {
       <Modal
         open={!!detail}
         onClose={() => setDetail(null)}
-        title="Audit entry"
+        title={t("audit.entry.title")}
         description={detail ? new Date(detail.createdAt).toLocaleString() : undefined}
         size="lg"
         footer={
@@ -274,11 +286,11 @@ export default function AuditLogPage() {
                   className="renis-btn-secondary"
                   onClick={() => void copyText(detail.entityId!)}
                 >
-                  Copy entity ID
+                  {t("audit.entry.copyEntityId")}
                 </button>
               ) : null}
               <button type="button" className="renis-btn-secondary" onClick={() => setDetail(null)}>
-                Close
+                {t("common.close")}
               </button>
             </div>
           ) : null
@@ -287,32 +299,40 @@ export default function AuditLogPage() {
         {detail ? (
           <div className="space-y-4 text-sm">
             <div>
-              <p className="text-slate-500 mb-1">Action</p>
+              <p className="text-slate-500 mb-1">{t("audit.entry.action")}</p>
               <AuditActionBadge action={detail.action} />
             </div>
             <dl className="grid gap-3 sm:grid-cols-2">
               <div>
-                <dt className="text-slate-500">Actor</dt>
-                <dd className="text-slate-900 mt-0.5">{detail.actorEmail ?? "—"}</dd>
+                <dt className="text-slate-500">{t("audit.entry.actor")}</dt>
+                <dd className="text-slate-900 mt-0.5">
+                  {detail.actorEmail ?? t("common.dash")}
+                </dd>
               </div>
               <div>
-                <dt className="text-slate-500">IP address</dt>
+                <dt className="text-slate-500">
+                  {t("audit.entry.ipAddress")}
+                </dt>
                 <dd className="font-mono text-xs text-slate-900 mt-0.5">
-                  {detail.ipAddress ?? "—"}
+                  {detail.ipAddress ?? t("common.dash")}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">Entity type</dt>
-                <dd className="text-slate-900 mt-0.5">{detail.entityType ?? "—"}</dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-slate-500">Entity ID</dt>
-                <dd className="font-mono text-xs text-slate-900 mt-0.5 break-all">
-                  {detail.entityId ?? "—"}
+                <dt className="text-slate-500">
+                  {t("audit.entry.entityType")}
+                </dt>
+                <dd className="text-slate-900 mt-0.5">
+                  {detail.entityType ?? t("common.dash")}
                 </dd>
               </div>
               <div className="sm:col-span-2">
-                <dt className="text-slate-500">Entry ID</dt>
+                <dt className="text-slate-500">{t("audit.entry.entityId")}</dt>
+                <dd className="font-mono text-xs text-slate-900 mt-0.5 break-all">
+                  {detail.entityId ?? t("common.dash")}
+                </dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-slate-500">{t("audit.entry.entryId")}</dt>
                 <dd className="font-mono text-xs text-slate-500 mt-0.5 break-all">
                   {detail.id}
                 </dd>
@@ -320,23 +340,27 @@ export default function AuditLogPage() {
             </dl>
             {detail.metadata !== null && detail.metadata !== undefined ? (
               <div>
-                <p className="text-slate-500 mb-2">Metadata</p>
+                <p className="text-slate-500 mb-2">
+                  {t("audit.entry.metadata")}
+                </p>
                 <pre className="max-h-64 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800">
                   {formatAuditMetadata(detail.metadata)}
                 </pre>
               </div>
             ) : (
-              <p className="text-slate-500 text-sm">No additional metadata recorded.</p>
+              <p className="text-slate-500 text-sm">
+                {t("audit.entry.noMetadata")}
+              </p>
             )}
           </div>
         ) : null}
       </Modal>
 
       {loading ? (
-        <p className="text-slate-500 py-8">Loading…</p>
+        <p className="text-slate-500 py-8">{t("common.loading")}</p>
       ) : total === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-          No audit entries match your filters.
+          {t("audit.empty")}
         </div>
       ) : (
         <PaginatedTable
@@ -350,11 +374,17 @@ export default function AuditLogPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-600">
               <tr>
-                <th className="px-3 py-2 font-medium">Time</th>
-                <th className="px-3 py-2 font-medium">Action</th>
-                <th className="px-3 py-2 font-medium">Actor</th>
-                <th className="px-3 py-2 font-medium">Entity</th>
-                <th className="px-3 py-2 font-medium">IP</th>
+                <th className="px-3 py-2 font-medium">{t("audit.column.time")}</th>
+                <th className="px-3 py-2 font-medium">
+                  {t("audit.column.action")}
+                </th>
+                <th className="px-3 py-2 font-medium">
+                  {t("audit.column.actor")}
+                </th>
+                <th className="px-3 py-2 font-medium">
+                  {t("audit.column.entity")}
+                </th>
+                <th className="px-3 py-2 font-medium">{t("audit.column.ip")}</th>
                 <th className="px-3 py-2 w-10" />
               </tr>
             </thead>
@@ -374,9 +404,11 @@ export default function AuditLogPage() {
                   <td className="px-3 py-2">
                     <AuditActionBadge action={row.action} />
                   </td>
-                  <td className="px-3 py-2 text-slate-700">{row.actorEmail ?? "—"}</td>
+                  <td className="px-3 py-2 text-slate-700">
+                    {row.actorEmail ?? t("common.dash")}
+                  </td>
                   <td className="px-3 py-2 text-xs text-slate-600">
-                    {row.entityType ?? "—"}
+                    {row.entityType ?? t("common.dash")}
                     {row.entityId ? (
                       <span className="block font-mono text-[10px] text-slate-400 truncate max-w-[10rem]">
                         {row.entityId}
@@ -384,17 +416,20 @@ export default function AuditLogPage() {
                     ) : null}
                   </td>
                   <td className="px-3 py-2 text-xs font-mono text-slate-500">
-                    {row.ipAddress ?? "—"}
+                    {row.ipAddress ?? t("common.dash")}
                   </td>
                   <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                     <RowMenu
-                      label="Audit entry actions"
+                      label={t("audit.entryActions")}
                       items={[
-                        { label: "View details", onClick: () => setDetail(row) },
+                        {
+                          label: t("common.viewDetails"),
+                          onClick: () => setDetail(row),
+                        },
                         ...(row.entityId
                           ? [
                               {
-                                label: "Copy entity ID",
+                                label: t("audit.entry.copyEntityId"),
                                 onClick: () => void copyText(row.entityId!),
                               },
                             ]

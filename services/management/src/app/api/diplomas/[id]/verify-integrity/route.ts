@@ -4,7 +4,7 @@ import { canManageDiplomas } from "@renis/core/permissions";
 import { prisma } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { institutionWhere } from "@/lib/scope";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 export async function OPTIONS() {
   return corsOptions();
@@ -28,19 +28,14 @@ export async function POST(
     select: { pdfHash: true, status: true },
   });
   if (!diploma?.pdfHash) {
-    return withCors(
-      NextResponse.json(
-        { error: "No published PDF hash on record." },
-        { status: 404 }
-      )
-    );
+    return withCors(apiError("api.diplomas.noPublishedHash", 404));
   }
 
   const form = await req.formData();
   const file = form.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return withCors(
-      NextResponse.json({ error: "PDF file is required." }, { status: 400 })
+      apiError("api.diplomas.pdfRequired", 400)
     );
   }
 

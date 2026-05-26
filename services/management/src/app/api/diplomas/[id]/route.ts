@@ -8,7 +8,7 @@ import { DiplomaStatus, prisma } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { publishDiplomaPdf } from "@/lib/diploma-publish";
 import { institutionWhere } from "@/lib/scope";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const DIPLOMA_TYPES = ["BACHELOR", "MASTER", "DOCTORATE", "CERTIFICATE", "LICENCE"] as const;
 
@@ -72,7 +72,7 @@ export async function PATCH(
     include: studentInclude,
   });
   if (!existing) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
 
   let body: z.infer<typeof patchSchema>;
@@ -83,7 +83,7 @@ export async function PATCH(
       const message = e.errors[0]?.message ?? "Invalid payload";
       return withCors(NextResponse.json({ error: message }, { status: 400 }));
     }
-    return withCors(NextResponse.json({ error: "Invalid payload" }, { status: 400 }));
+    return withCors(apiError("api.error.invalidPayload", 400));
   }
 
   const managementUrl =
@@ -91,12 +91,7 @@ export async function PATCH(
 
   if (body.action === "update") {
     if (existing.status !== DiplomaStatus.DRAFT) {
-      return withCors(
-        NextResponse.json(
-          { error: "Only draft diplomas can be edited." },
-          { status: 409 }
-        )
-      );
+      return withCors(apiError("api.diplomas.onlyDraftCanEdit", 409));
     }
     const updated = await prisma.diploma.update({
       where: { id },
@@ -144,12 +139,7 @@ export async function PATCH(
       );
     }
     if (!existing.uniqueCode) {
-      return withCors(
-        NextResponse.json(
-          { error: "Verification code missing. Re-submit the diploma." },
-          { status: 409 }
-        )
-      );
+      return withCors(apiError("api.diplomas.codeMissing", 409));
     }
     try {
       const updated = await publishDiplomaPdf(id);
@@ -186,12 +176,7 @@ export async function PATCH(
   switch (body.action) {
     case "submit":
       if (existing.status !== DiplomaStatus.DRAFT) {
-        return withCors(
-          NextResponse.json(
-            { error: "Only draft diplomas can be submitted." },
-            { status: 409 }
-          )
-        );
+        return withCors(apiError("api.diplomas.onlyDraftCanSubmit", 409));
       }
       data = {
         status: DiplomaStatus.SUBMITTED,
@@ -202,12 +187,7 @@ export async function PATCH(
       break;
     case "revoke":
       if (existing.status !== DiplomaStatus.PUBLISHED) {
-        return withCors(
-          NextResponse.json(
-            { error: "Only published diplomas can be revoked." },
-            { status: 409 }
-          )
-        );
+        return withCors(apiError("api.diplomas.onlyPublishedCanRevoke", 409));
       }
       {
         const valid = await verifyKeycloakUserPassword(
@@ -215,12 +195,7 @@ export async function PATCH(
           body.password
         );
         if (!valid) {
-          return withCors(
-            NextResponse.json(
-              { error: "Password confirmation failed." },
-              { status: 403 }
-            )
-          );
+          return withCors(apiError("api.diplomas.passwordFailed", 403));
         }
       }
       data = {

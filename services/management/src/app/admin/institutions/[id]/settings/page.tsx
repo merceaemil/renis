@@ -6,11 +6,13 @@ import { useEffect } from "react";
 import { canManageInstitutions } from "@renis/core/permissions";
 import { AppShell } from "@/components/AppShell";
 import { InstitutionSettingsForm } from "@/components/InstitutionSettingsForm";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 export default function InstitutionSettingsPage() {
   const { id } = useParams<{ id: string }>();
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
 
   useEffect(() => {
     if (session && !canManageInstitutions(session.user?.role)) {
@@ -20,14 +22,14 @@ export default function InstitutionSettingsPage() {
 
   if (!session?.accessToken) {
     return (
-      <AppShell title="Institution settings">
-        <p className="text-slate-500">Loading…</p>
+      <AppShell title={t("nav.institutionSettings")}>
+        <p className="text-slate-500">{t("common.loading")}</p>
       </AppShell>
     );
   }
 
   return (
-    <AppShell title="Institution settings">
+    <AppShell title={t("nav.institutionSettings")}>
       <InstitutionSettingsForm
         institutionId={id}
         accessToken={session.accessToken}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { canViewMinistryDashboard } from "@renis/core/permissions";
 import { DiplomaStatus, prisma } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 import { getMinistryDiplomaFlags } from "@/lib/ministry-flags";
 
 export async function OPTIONS() {
@@ -45,7 +45,7 @@ export async function GET(
   });
 
   if (!diploma) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
 
   const ministryFlags = await getMinistryDiplomaFlags(id);

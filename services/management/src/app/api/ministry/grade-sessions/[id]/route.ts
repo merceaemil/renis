@@ -4,7 +4,7 @@ import { GradeStatus, prisma } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { detectSessionAnomalies } from "@/lib/grade-anomalies";
 import { loadGradeSessionGrid } from "@/lib/grade-session-grid";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 export async function OPTIONS() {
   return corsOptions();
@@ -23,12 +23,12 @@ export async function GET(
     where: { id, status: GradeStatus.SUBMITTED },
   });
   if (!session) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
 
   const grid = await loadGradeSessionGrid(id);
   if (!grid) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
 
   const studentLabels = new Map(

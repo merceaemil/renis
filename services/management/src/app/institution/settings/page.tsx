@@ -13,10 +13,12 @@ import {
 } from "@/components/InstitutionScopeBar";
 import { InstitutionSettingsForm } from "@/components/InstitutionSettingsForm";
 import { apiFetch } from "@/lib/api";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 export default function MyInstitutionSettingsPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
   const [institutionId, setInstitutionId] = useState("");
 
   const isSuperAdmin = session?.user?.role === UserRole.SUPER_ADMIN;
@@ -45,14 +47,14 @@ export default function MyInstitutionSettingsPage() {
 
   if (!session?.accessToken) {
     return (
-      <AppShell title="Institution settings">
-        <p className="text-slate-500">Loading…</p>
+      <AppShell title={t("nav.institutionSettings")}>
+        <p className="text-slate-500">{t("common.loading")}</p>
       </AppShell>
     );
   }
 
   return (
-    <AppShell title="Institution settings">
+    <AppShell title={t("nav.institutionSettings")}>
       {isSuperAdmin && (
         <InstitutionScopeBar onChange={(id) => setInstitutionId(id)} />
       )}
@@ -61,26 +63,20 @@ export default function MyInstitutionSettingsPage() {
         <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 max-w-lg">
           {isSuperAdmin ? (
             <>
-              <p className="mb-3">
-                Choose an institution in the scope selector above to edit its
-                grade classifications and branding.
-              </p>
+              <p className="mb-3">{t("settings.noScopeSuperAdmin")}</p>
               <p>
-                Or open settings from{" "}
+                {t("settings.openFromAdmin")}{" "}
                 <Link
                   href="/admin/institutions"
                   className="text-renis-primary hover:underline"
                 >
-                  Admin → Institutions
+                  {t("settings.adminInstitutions")}
                 </Link>
                 .
               </p>
             </>
           ) : (
-            <p>
-              Your account is not linked to an institution. Contact a Super
-              Admin.
-            </p>
+            <p>{t("settings.noInstitutionLinked")}</p>
           )}
         </div>
       ) : (

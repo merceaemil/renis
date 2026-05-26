@@ -18,6 +18,7 @@ import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { withInstitutionQuery } from "@/lib/api-scope-query";
 import { apiFetch } from "@/lib/api";
 import { listApiUrl, normalizeListResponse } from "@/lib/list-response";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type Subject = {
   id: string;
@@ -39,6 +40,7 @@ type Programme = {
 export default function ProgrammesPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [scopeId, setScopeId] = useState("");
 
@@ -76,7 +78,7 @@ export default function ProgrammesPage() {
         scopeId
       );
       const res = await apiFetch(url, { accessToken: session.accessToken });
-      if (!res.ok) throw new Error("Could not load programmes");
+      if (!res.ok) throw new Error(t("programmes.couldNotLoad"));
       return normalizeListResponse<Programme>(await res.json());
     },
     [session?.accessToken, scopeId]
@@ -110,7 +112,7 @@ export default function ProgrammesPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Creation failed");
+      setError(data.error ?? t("programmes.creationFailed"));
       return;
     }
     setCreateOpen(false);
@@ -128,7 +130,7 @@ export default function ProgrammesPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Could not add subject");
+      setError(data.error ?? t("programmes.addSubjectFailed"));
       return;
     }
     setSubjectTarget(null);
@@ -182,7 +184,7 @@ export default function ProgrammesPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Enrollment failed");
+      setError(data.error ?? t("programmes.enrollmentFailed"));
       return;
     }
     setEnrollTarget(null);
@@ -190,25 +192,31 @@ export default function ProgrammesPage() {
 
   function menuItems(p: Programme) {
     return [
-      { label: "View details", onClick: () => setDetailTarget(p) },
-      { label: "Enroll students", onClick: () => void openEnrollment(p) },
-      { label: "Add subject", onClick: () => setSubjectTarget(p) },
+      { label: t("common.viewDetails"), onClick: () => setDetailTarget(p) },
+      {
+        label: t("programmes.enrollStudents"),
+        onClick: () => void openEnrollment(p),
+      },
+      {
+        label: t("programmes.addSubject"),
+        onClick: () => setSubjectTarget(p),
+      },
     ];
   }
 
   return (
-    <AppShell title="Programmes & subjects">
+    <AppShell title={t("programmes.title")}>
       <InstitutionScopeBar onChange={setScopeId} />
 
       <PageHeader
-        description="Define programmes, subjects, and student enrollments. Grade grids only show students enrolled in the programme."
+        description={t("programmes.description")}
         actions={
           <button
             type="button"
             className="renis-btn-primary"
             onClick={() => setCreateOpen(true)}
           >
-            New programme
+            {t("programmes.new")}
           </button>
         }
       />
@@ -222,21 +230,21 @@ export default function ProgrammesPage() {
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="New programme"
+        title={t("programmes.newTitle")}
         footer={
           <div className="flex justify-end gap-2">
             <button type="button" className="renis-btn-secondary" onClick={() => setCreateOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </button>
             <button type="submit" form="programme-create-form" className="renis-btn-primary">
-              Create programme
+              {t("programmes.createSubmit")}
             </button>
           </div>
         }
       >
         <form id="programme-create-form" className="grid gap-4 sm:grid-cols-2" onSubmit={createProgramme}>
           <label className="text-sm">
-            <span className="text-slate-600">Code</span>
+            <span className="text-slate-600">{t("programmes.field.code")}</span>
             <input
               required
               className="renis-input mt-1"
@@ -247,7 +255,7 @@ export default function ProgrammesPage() {
             />
           </label>
           <label className="text-sm">
-            <span className="text-slate-600">Name</span>
+            <span className="text-slate-600">{t("programmes.field.name")}</span>
             <input
               required
               className="renis-input mt-1"
@@ -263,21 +271,27 @@ export default function ProgrammesPage() {
       <Modal
         open={!!subjectTarget}
         onClose={() => setSubjectTarget(null)}
-        title={subjectTarget ? `Add subject — ${subjectTarget.code}` : "Add subject"}
+        title={
+          subjectTarget
+            ? t("programmes.addSubjectTitle", { code: subjectTarget.code })
+            : t("programmes.addSubject")
+        }
         footer={
           <div className="flex justify-end gap-2">
             <button type="button" className="renis-btn-secondary" onClick={() => setSubjectTarget(null)}>
-              Cancel
+              {t("common.cancel")}
             </button>
             <button type="submit" form="subject-form" className="renis-btn-primary">
-              Save subject
+              {t("programmes.saveSubject")}
             </button>
           </div>
         }
       >
         <form id="subject-form" className="grid gap-4 sm:grid-cols-2" onSubmit={addSubject}>
           <label className="text-sm">
-            <span className="text-slate-600">Subject code</span>
+            <span className="text-slate-600">
+              {t("programmes.subject.code")}
+            </span>
             <input
               required
               className="renis-input mt-1"
@@ -288,7 +302,9 @@ export default function ProgrammesPage() {
             />
           </label>
           <label className="text-sm">
-            <span className="text-slate-600">Name</span>
+            <span className="text-slate-600">
+              {t("programmes.subject.name")}
+            </span>
             <input
               required
               className="renis-input mt-1"
@@ -299,7 +315,9 @@ export default function ProgrammesPage() {
             />
           </label>
           <label className="text-sm">
-            <span className="text-slate-600">Semester</span>
+            <span className="text-slate-600">
+              {t("programmes.subject.semester")}
+            </span>
             <select
               className="renis-input mt-1"
               value={subjectForm.semester}
@@ -312,7 +330,9 @@ export default function ProgrammesPage() {
             </select>
           </label>
           <label className="text-sm">
-            <span className="text-slate-600">Year level</span>
+            <span className="text-slate-600">
+              {t("programmes.subject.yearLevel")}
+            </span>
             <input
               type="number"
               min={1}
@@ -328,7 +348,9 @@ export default function ProgrammesPage() {
             />
           </label>
           <label className="text-sm">
-            <span className="text-slate-600">Credits</span>
+            <span className="text-slate-600">
+              {t("programmes.subject.credits")}
+            </span>
             <input
               type="number"
               min={0}
@@ -343,7 +365,9 @@ export default function ProgrammesPage() {
             />
           </label>
           <label className="text-sm">
-            <span className="text-slate-600">Coefficient</span>
+            <span className="text-slate-600">
+              {t("programmes.subject.coefficient")}
+            </span>
             <input
               type="number"
               min={0.1}
@@ -364,15 +388,21 @@ export default function ProgrammesPage() {
       <Modal
         open={!!enrollTarget}
         onClose={() => setEnrollTarget(null)}
-        title={enrollTarget ? `Enroll students — ${enrollTarget.name}` : "Enrollment"}
-        description={`Currently enrolled: ${enrolledIds.length}`}
+        title={
+          enrollTarget
+            ? t("programmes.enrollTitle", { name: enrollTarget.name })
+            : t("programmes.enrollmentFallback")
+        }
+        description={t("programmes.currentlyEnrolled", {
+          count: enrolledIds.length,
+        })}
         footer={
           <div className="flex justify-end gap-2">
             <button type="button" className="renis-btn-secondary" onClick={() => setEnrollTarget(null)}>
-              Cancel
+              {t("common.cancel")}
             </button>
             <button type="submit" form="enroll-form" className="renis-btn-primary">
-              Save enrollment
+              {t("programmes.saveEnrollment")}
             </button>
           </div>
         }
@@ -380,7 +410,9 @@ export default function ProgrammesPage() {
         <form id="enroll-form" onSubmit={saveEnrollment}>
           <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200 p-3 space-y-2 text-sm">
             {allStudents.length === 0 ? (
-              <p className="text-slate-500">No students in this institution.</p>
+              <p className="text-slate-500">
+                {t("programmes.noStudentsHere")}
+              </p>
             ) : (
               allStudents.map((s) => (
                 <label key={s.id} className="flex items-center gap-2 cursor-pointer">
@@ -406,13 +438,20 @@ export default function ProgrammesPage() {
       <Modal
         open={!!detailTarget}
         onClose={() => setDetailTarget(null)}
-        title={detailTarget ? `${detailTarget.code} — ${detailTarget.name}` : "Programme"}
+        title={
+          detailTarget
+            ? t("programmes.detailTitle", {
+                code: detailTarget.code,
+                name: detailTarget.name,
+              })
+            : t("programmes.fallbackTitle")
+        }
         size="lg"
         footer={
           detailTarget ? (
             <div className="flex justify-end gap-2">
               <button type="button" className="renis-btn-secondary" onClick={() => setDetailTarget(null)}>
-                Close
+                {t("common.close")}
               </button>
               <button
                 type="button"
@@ -422,7 +461,7 @@ export default function ProgrammesPage() {
                   setDetailTarget(null);
                 }}
               >
-                Enroll students
+                {t("programmes.enrollStudents")}
               </button>
             </div>
           ) : null
@@ -430,16 +469,26 @@ export default function ProgrammesPage() {
       >
         {detailTarget ? (
           detailTarget.subjects.length === 0 ? (
-            <p className="text-sm text-slate-500">No subjects defined yet.</p>
+            <p className="text-sm text-slate-500">
+              {t("programmes.noSubjects")}
+            </p>
           ) : (
             <table className="w-full text-sm">
               <thead className="text-left text-slate-500 border-b border-slate-100">
                 <tr>
-                  <th className="py-2 pr-3">Code</th>
-                  <th className="py-2 pr-3">Name</th>
-                  <th className="py-2 pr-3">Sem.</th>
-                  <th className="py-2 pr-3">Year</th>
-                  <th className="py-2">Coef.</th>
+                  <th className="py-2 pr-3">
+                    {t("programmes.subjectCol.code")}
+                  </th>
+                  <th className="py-2 pr-3">
+                    {t("programmes.subjectCol.name")}
+                  </th>
+                  <th className="py-2 pr-3">
+                    {t("programmes.subjectCol.sem")}
+                  </th>
+                  <th className="py-2 pr-3">
+                    {t("programmes.subjectCol.year")}
+                  </th>
+                  <th className="py-2">{t("programmes.subjectCol.coef")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -459,10 +508,10 @@ export default function ProgrammesPage() {
       </Modal>
 
       {loading ? (
-        <p className="text-slate-500 py-8">Loading…</p>
+        <p className="text-slate-500 py-8">{t("common.loading")}</p>
       ) : total === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-          No programmes yet.
+          {t("programmes.empty")}
         </div>
       ) : (
         <PaginatedTable
@@ -476,9 +525,15 @@ export default function ProgrammesPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-600">
               <tr>
-                <th className="px-4 py-3 font-medium">Code</th>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Subjects</th>
+                <th className="px-4 py-3 font-medium">
+                  {t("programmes.field.code")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("programmes.field.name")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("programmes.field.subjects")}
+                </th>
                 <th className="px-4 py-3 w-12" />
               </tr>
             </thead>
@@ -493,7 +548,10 @@ export default function ProgrammesPage() {
                   <td className="px-4 py-3 font-medium text-slate-900">{p.name}</td>
                   <td className="px-4 py-3 text-slate-600">{p.subjects.length}</td>
                   <td className="px-4 py-3">
-                    <RowMenu label={`Actions for ${p.code}`} items={menuItems(p)} />
+                    <RowMenu
+                      label={t("common.actionsFor", { target: p.code })}
+                      items={menuItems(p)}
+                    />
                   </td>
                 </tr>
               ))}

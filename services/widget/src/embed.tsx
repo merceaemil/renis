@@ -1,6 +1,7 @@
 import { createRoot, type Root } from "react-dom/client";
 import { VerifyWidget } from "./VerifyWidget";
 import widgetCss from "./widget.css?inline";
+import { detectLocaleFromElement } from "./i18n";
 
 const mounted = new WeakSet<HTMLElement>();
 const roots = new Map<HTMLElement, Root>();
@@ -33,6 +34,7 @@ function mount(container: HTMLElement): void {
   const apiUrl = resolveApiUrl(container);
   const initialCode =
     container.dataset.initialCode ?? readInitialCode();
+  const locale = detectLocaleFromElement(container);
 
   const shadow = container.attachShadow({ mode: "open" });
 
@@ -46,7 +48,11 @@ function mount(container: HTMLElement): void {
   const root = createRoot(mountPoint);
   roots.set(container, root);
   root.render(
-    <VerifyWidget apiUrl={apiUrl} initialCode={initialCode} />
+    <VerifyWidget
+      apiUrl={apiUrl}
+      initialCode={initialCode}
+      locale={locale}
+    />
   );
 }
 

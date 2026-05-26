@@ -5,7 +5,7 @@ import { canManageStudents } from "@renis/core/permissions";
 import { prisma } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { institutionWhere } from "@/lib/scope";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const patchSchema = z.object({
   studentIdNumber: z.string().min(1).max(64).optional(),
@@ -36,7 +36,7 @@ export async function GET(
     where: { id, ...scope },
   });
   if (!student) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.students.notFound", 404));
   }
 
   return withCors(NextResponse.json(student));
@@ -58,14 +58,14 @@ export async function PATCH(
     where: { id, ...scope },
   });
   if (!existing) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.students.notFound", 404));
   }
 
   let body: z.infer<typeof patchSchema>;
   try {
     body = patchSchema.parse(await req.json());
   } catch {
-    return withCors(NextResponse.json({ error: "Invalid payload" }, { status: 400 }));
+    return withCors(apiError("api.error.invalidPayload", 400));
   }
 
   if (
@@ -81,9 +81,7 @@ export async function PATCH(
       },
     });
     if (duplicate && duplicate.id !== id) {
-      return withCors(
-        NextResponse.json({ error: "Student ID already exists." }, { status: 409 })
-      );
+      return withCors(apiError("api.students.idExists", 409));
     }
   }
 

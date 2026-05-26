@@ -7,7 +7,7 @@ import {
 } from "@renis/core";
 import { prisma, UserRole, UserStatus } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const patchSchema = z.object({
   status: z.enum(["ACTIVE", "INACTIVE"]),
@@ -28,7 +28,7 @@ export async function PATCH(
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
 
   if (
@@ -39,21 +39,14 @@ export async function PATCH(
   }
 
   if (target.id === sessionUser.id) {
-    return withCors(
-      NextResponse.json(
-        { error: "You cannot deactivate your own account." },
-        { status: 400 }
-      )
-    );
+    return withCors(apiError("api.users.cannotDeactivateSelf", 400));
   }
 
   let body: z.infer<typeof patchSchema>;
   try {
     body = patchSchema.parse(await req.json());
   } catch {
-    return withCors(
-      NextResponse.json({ error: "Invalid payload" }, { status: 400 })
-    );
+    return withCors(apiError("api.error.invalidPayload", 400));
   }
 
   const status = body.status as UserStatus;

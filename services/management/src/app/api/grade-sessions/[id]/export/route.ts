@@ -4,7 +4,7 @@ import { corsOptions, withCors } from "@/lib/cors";
 import { gradeGridToCsv, gradeGridToXlsx } from "@/lib/grade-export";
 import { loadGradeSessionGrid } from "@/lib/grade-session-grid";
 import { sessionInstitutionFilter } from "@/lib/scope";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 export async function OPTIONS() {
   return corsOptions();
@@ -21,7 +21,7 @@ export async function GET(
 
   const grid = await loadGradeSessionGrid(id, sessionInstitutionFilter(user));
   if (!grid) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
 
   const base = `grades-${grid.session.programme.code}-${grid.session.academicYear}-${grid.session.semester}`;

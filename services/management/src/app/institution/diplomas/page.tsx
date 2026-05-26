@@ -21,6 +21,7 @@ import { apiFetch } from "@/lib/api";
 import { listApiUrl, normalizeListResponse } from "@/lib/list-response";
 import { downloadWithAuth } from "@/lib/download";
 import { buildDiplomaVerifyUrl } from "@/lib/verify-url";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type Student = {
   id: string;
@@ -43,6 +44,7 @@ type Diploma = {
 export default function DiplomasPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
   const integrityInputRef = useRef<HTMLInputElement>(null);
   const [integrityDiplomaId, setIntegrityDiplomaId] = useState<string | null>(
     null
@@ -90,7 +92,7 @@ export default function DiplomasPage() {
         scopeId
       );
       const res = await apiFetch(url, { accessToken: session.accessToken });
-      if (!res.ok) throw new Error("Could not load diplomas");
+      if (!res.ok) throw new Error(t("diplomas.couldNotLoad"));
       return normalizeListResponse<Diploma>(await res.json());
     },
     [session?.accessToken, scopeId]
@@ -138,7 +140,7 @@ export default function DiplomasPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Creation failed");
+      setError(data.error ?? t("diplomas.creationFailed"));
       return;
     }
     setCreateOpen(false);
@@ -162,7 +164,7 @@ export default function DiplomasPage() {
         true
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Preview failed");
+      setError(e instanceof Error ? e.message : t("diplomas.previewFailed"));
     }
   }
 
@@ -173,7 +175,7 @@ export default function DiplomasPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "PDF unavailable");
+      setError(data.error ?? t("diplomas.pdfUnavailable"));
       return;
     }
     window.open(data.url as string, "_blank", "noopener,noreferrer");
@@ -191,7 +193,7 @@ export default function DiplomasPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Update failed");
+      setError(data.error ?? t("diplomas.updateFailed"));
       return false;
     }
     await reload();
@@ -202,9 +204,12 @@ export default function DiplomasPage() {
     const items: RowMenuItem[] = [];
     if (d.status === "DRAFT") {
       items.push(
-        { label: "Preview PDF", onClick: () => void previewPdf(d.id) },
         {
-          label: "Edit draft",
+          label: t("diplomas.menu.previewPdf"),
+          onClick: () => void previewPdf(d.id),
+        },
+        {
+          label: t("diplomas.menu.editDraft"),
           onClick: () => {
             setEditTarget(d);
             setEditForm({
@@ -217,32 +222,38 @@ export default function DiplomasPage() {
           },
         },
         {
-          label: "Submit for review",
+          label: t("diplomas.menu.submitReview"),
           onClick: () => void patchDiploma(d.id, { action: "submit" }),
         }
       );
     }
     if (d.status === "SUBMITTED") {
       items.push(
-        { label: "Preview PDF", onClick: () => void previewPdf(d.id) },
         {
-          label: "Generate & publish",
+          label: t("diplomas.menu.previewPdf"),
+          onClick: () => void previewPdf(d.id),
+        },
+        {
+          label: t("diplomas.menu.publish"),
           onClick: () => void patchDiploma(d.id, { action: "publish" }),
         }
       );
     }
     if (d.status === "PUBLISHED") {
       items.push(
-        { label: "Download PDF", onClick: () => void downloadPdf(d.id) },
         {
-          label: "Check PDF integrity",
+          label: t("diplomas.menu.downloadPdf"),
+          onClick: () => void downloadPdf(d.id),
+        },
+        {
+          label: t("diplomas.menu.checkIntegrity"),
           onClick: () => {
             setIntegrityDiplomaId(d.id);
             integrityInputRef.current?.click();
           },
         },
         {
-          label: "Open verify page",
+          label: t("diplomas.menu.openVerify"),
           onClick: () => {
             if (d.uniqueCode) {
               window.open(
@@ -255,7 +266,7 @@ export default function DiplomasPage() {
           disabled: !d.uniqueCode,
         },
         {
-          label: "Revoke diploma",
+          label: t("diplomas.menu.revoke"),
           variant: "danger",
           onClick: () => {
             setRevokeTarget(d);
@@ -279,18 +290,18 @@ export default function DiplomasPage() {
   });
 
   return (
-    <AppShell title="Diplomas">
+    <AppShell title={t("diplomas.title")}>
       <InstitutionScopeBar onChange={setScopeId} />
 
       <PageHeader
-        description="Workflow: DRAFT → SUBMITTED → PUBLISHED → optional REVOKED. Verification code on submit; official PDF with QR on publish."
+        description={t("diplomas.description")}
         actions={
           <button
             type="button"
             className="renis-btn-primary"
             onClick={() => setCreateOpen(true)}
           >
-            New diploma
+            {t("diplomas.new")}
           </button>
         }
       />
@@ -326,22 +337,24 @@ export default function DiplomasPage() {
           });
           const data = await res.json();
           if (!res.ok) {
-            setError(data.error ?? "Integrity check failed");
+            setError(data.error ?? t("diplomas.integrityFailed"));
             return;
           }
           setMessage(
             data.match
-              ? "PDF matches the archived original (SHA-256)."
-              : "PDF does NOT match the archived hash."
+              ? t("diplomas.integrityMatch")
+              : t("diplomas.integrityMismatch")
           );
         }}
       />
 
       {loading ? (
-        <p className="text-slate-500 py-8">Loading…</p>
+        <p className="text-slate-500 py-8">{t("common.loading")}</p>
       ) : total === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-          No diplomas yet. Click <strong>New diploma</strong> to create a draft.
+          {t("diplomas.empty.prefix")}{" "}
+          <strong>{t("diplomas.empty.action")}</strong>{" "}
+          {t("diplomas.empty.suffix")}
         </div>
       ) : (
         <PaginatedTable
@@ -355,11 +368,22 @@ export default function DiplomasPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-600">
               <tr>
-                <th className="px-4 py-3 font-medium">Student</th>
-                <th className="px-4 py-3 font-medium">Title</th>
-                <th className="px-4 py-3 font-medium">Year</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium w-10" aria-label="Actions" />
+                <th className="px-4 py-3 font-medium">
+                  {t("diplomas.field.student")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("diplomas.field.title")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("diplomas.field.year")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("diplomas.field.status")}
+                </th>
+                <th
+                  className="px-4 py-3 font-medium w-10"
+                  aria-label={t("common.actions")}
+                />
               </tr>
             </thead>
             <tbody>
@@ -392,8 +416,8 @@ export default function DiplomasPage() {
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="New diploma"
-        description="Creates a draft. You can preview and edit before submitting."
+        title={t("diplomas.newTitle")}
+        description={t("diplomas.newDescription")}
         size="lg"
         footer={
           <div className="flex justify-end gap-2">
@@ -402,24 +426,24 @@ export default function DiplomasPage() {
               className="renis-btn-secondary"
               onClick={() => setCreateOpen(false)}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
               form="diploma-create-form"
               className="renis-btn-primary"
             >
-              Create draft
+              {t("diplomas.createDraft")}
             </button>
           </div>
         }
       >
         <form id="diploma-create-form" className="grid gap-4 sm:grid-cols-2" onSubmit={handleCreate}>
           <label className="block text-sm sm:col-span-2">
-            <span className="text-slate-600">Student</span>
+            <span className="text-slate-600">{t("diplomas.field.student")}</span>
             <input
               type="search"
-              placeholder="Search by name or ID…"
+              placeholder={t("diplomas.field.studentSearch")}
               className="renis-input mt-1 mb-2"
               value={studentSearch}
               onChange={(e) => setStudentSearch(e.target.value)}
@@ -430,7 +454,7 @@ export default function DiplomasPage() {
               value={form.studentId}
               onChange={(e) => setForm({ ...form, studentId: e.target.value })}
             >
-              <option value="">— Select student —</option>
+              <option value="">{t("diplomas.field.selectStudent")}</option>
               {filteredStudents.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.lastName}, {s.firstName} ({s.studentIdNumber})
@@ -439,7 +463,7 @@ export default function DiplomasPage() {
             </select>
           </label>
           <label className="block text-sm">
-            <span className="text-slate-600">Type</span>
+            <span className="text-slate-600">{t("diplomas.field.type")}</span>
             <input
               required
               className="renis-input mt-1"
@@ -448,7 +472,9 @@ export default function DiplomasPage() {
             />
           </label>
           <label className="block text-sm">
-            <span className="text-slate-600">Graduation year</span>
+            <span className="text-slate-600">
+              {t("diplomas.field.graduationYear")}
+            </span>
             <input
               required
               type="number"
@@ -460,7 +486,7 @@ export default function DiplomasPage() {
             />
           </label>
           <label className="block text-sm sm:col-span-2">
-            <span className="text-slate-600">Title</span>
+            <span className="text-slate-600">{t("diplomas.field.title")}</span>
             <input
               required
               className="renis-input mt-1"
@@ -469,7 +495,9 @@ export default function DiplomasPage() {
             />
           </label>
           <label className="block text-sm sm:col-span-2">
-            <span className="text-slate-600">Honors (optional)</span>
+            <span className="text-slate-600">
+              {t("diplomas.field.honorsOptional")}
+            </span>
             <input
               className="renis-input mt-1"
               value={form.honors}
@@ -482,7 +510,7 @@ export default function DiplomasPage() {
       <Modal
         open={!!detailTarget}
         onClose={() => setDetailTarget(null)}
-        title={detailTarget?.title ?? "Diploma"}
+        title={detailTarget?.title ?? t("diplomas.detailFallback")}
         description={
           detailTarget
             ? `${detailTarget.student.lastName}, ${detailTarget.student.firstName}`
@@ -496,7 +524,7 @@ export default function DiplomasPage() {
                 className="renis-btn-secondary"
                 onClick={() => setDetailTarget(null)}
               >
-                Close
+                {t("common.close")}
               </button>
               {detailTarget.status === "DRAFT" && (
                 <button
@@ -515,7 +543,7 @@ export default function DiplomasPage() {
                     });
                   }}
                 >
-                  Edit draft
+                  {t("diplomas.menu.editDraft")}
                 </button>
               )}
             </div>
@@ -525,28 +553,34 @@ export default function DiplomasPage() {
         {detailTarget ? (
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-slate-500">Status</dt>
+              <dt className="text-slate-500">{t("diplomas.field.status")}</dt>
               <dd className="mt-0.5">
                 <StatusBadge status={detailTarget.status} />
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Type</dt>
+              <dt className="text-slate-500">{t("diplomas.field.type")}</dt>
               <dd className="mt-0.5 font-medium">{detailTarget.type}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Graduation year</dt>
+              <dt className="text-slate-500">
+                {t("diplomas.field.graduationYear")}
+              </dt>
               <dd className="mt-0.5 font-medium">{detailTarget.graduationYear}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Verification code</dt>
+              <dt className="text-slate-500">
+                {t("diplomas.verificationCode")}
+              </dt>
               <dd className="mt-0.5 font-mono text-xs break-all">
-                {detailTarget.uniqueCode ?? "— (assigned on submit)"}
+                {detailTarget.uniqueCode ?? t("diplomas.codeOnSubmit")}
               </dd>
             </div>
             {detailTarget.honors ? (
               <div className="sm:col-span-2">
-                <dt className="text-slate-500">Honors</dt>
+                <dt className="text-slate-500">
+                  {t("diplomas.field.honors")}
+                </dt>
                 <dd className="mt-0.5">{detailTarget.honors}</dd>
               </div>
             ) : null}
@@ -557,14 +591,14 @@ export default function DiplomasPage() {
       <Modal
         open={!!editTarget}
         onClose={() => setEditTarget(null)}
-        title="Edit draft diploma"
+        title={t("diplomas.editDraftTitle")}
         footer={
           <div className="flex justify-end gap-2">
             <button type="button" className="renis-btn-secondary" onClick={() => setEditTarget(null)}>
-              Cancel
+              {t("common.cancel")}
             </button>
             <button type="submit" form="diploma-edit-form" className="renis-btn-primary">
-              Save changes
+              {t("common.saveChanges")}
             </button>
           </div>
         }
@@ -586,7 +620,7 @@ export default function DiplomasPage() {
             }}
           >
             <label>
-              <span className="text-slate-600">Type</span>
+              <span className="text-slate-600">{t("diplomas.field.type")}</span>
               <input
                 required
                 className="renis-input mt-1"
@@ -595,7 +629,9 @@ export default function DiplomasPage() {
               />
             </label>
             <label>
-              <span className="text-slate-600">Programme</span>
+              <span className="text-slate-600">
+                {t("diplomas.field.programme")}
+              </span>
               <input
                 className="renis-input mt-1"
                 value={editForm.programmeName}
@@ -605,7 +641,7 @@ export default function DiplomasPage() {
               />
             </label>
             <label>
-              <span className="text-slate-600">Title</span>
+              <span className="text-slate-600">{t("diplomas.field.title")}</span>
               <input
                 required
                 className="renis-input mt-1"
@@ -614,7 +650,9 @@ export default function DiplomasPage() {
               />
             </label>
             <label>
-              <span className="text-slate-600">Graduation year</span>
+              <span className="text-slate-600">
+                {t("diplomas.field.graduationYear")}
+              </span>
               <input
                 required
                 type="number"
@@ -629,7 +667,9 @@ export default function DiplomasPage() {
               />
             </label>
             <label>
-              <span className="text-slate-600">Honors</span>
+              <span className="text-slate-600">
+                {t("diplomas.field.honors")}
+              </span>
               <input
                 className="renis-input mt-1"
                 value={editForm.honors}
@@ -643,12 +683,12 @@ export default function DiplomasPage() {
       <Modal
         open={!!revokeTarget}
         onClose={() => setRevokeTarget(null)}
-        title="Revoke diploma"
-        description="Irreversible. Requires a detailed reason (min. 100 characters) and your password."
+        title={t("diplomas.revokeTitle")}
+        description={t("diplomas.revokeDescription")}
         footer={
           <div className="flex justify-end gap-2">
             <button type="button" className="renis-btn-secondary" onClick={() => setRevokeTarget(null)}>
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -657,12 +697,14 @@ export default function DiplomasPage() {
                 const trimmed = revokeReason.trim();
                 if (trimmed.length < 100) {
                   setError(
-                    `Revocation reason must be at least 100 characters (${trimmed.length}/100).`
+                    t("diplomas.revokeReasonTooShort", {
+                      count: trimmed.length,
+                    })
                   );
                   return;
                 }
                 if (!revokePassword) {
-                  setError("Password confirmation is required.");
+                  setError(t("diplomas.passwordRequired"));
                   return;
                 }
                 if (!revokeTarget) return;
@@ -673,7 +715,7 @@ export default function DiplomasPage() {
                 }).then((ok) => ok && setRevokeTarget(null));
               }}
             >
-              Revoke permanently
+              {t("diplomas.revokeAction")}
             </button>
           </div>
         }
@@ -681,7 +723,7 @@ export default function DiplomasPage() {
         <div className="space-y-3 text-sm">
           <textarea
             className="renis-input min-h-[100px]"
-            placeholder="Revocation reason…"
+            placeholder={t("diplomas.revokeReasonPlaceholder")}
             value={revokeReason}
             onChange={(e) => setRevokeReason(e.target.value)}
           />
@@ -689,7 +731,7 @@ export default function DiplomasPage() {
             type="password"
             autoComplete="current-password"
             className="renis-input"
-            placeholder="Your Keycloak password"
+            placeholder={t("diplomas.revokePasswordPlaceholder")}
             value={revokePassword}
             onChange={(e) => setRevokePassword(e.target.value)}
           />

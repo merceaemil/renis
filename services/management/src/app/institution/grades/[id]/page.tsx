@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiFetch } from "@/lib/api";
 import { downloadWithAuth } from "@/lib/download";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type Subject = { id: string; code: string; name: string };
 type StudentRow = {
@@ -68,6 +69,7 @@ export default function GradeSessionPage() {
   const { id } = useParams<{ id: string }>();
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const [detail, setDetail] = useState<SessionDetail | null>(null);
@@ -99,7 +101,7 @@ export default function GradeSessionPage() {
       setError(null);
       const res = await apiFetch(`/api/grade-sessions/${id}`, { accessToken });
       if (!res.ok) {
-        setError("Could not load session");
+        setError(t("grades.session.couldNotLoad"));
         setLoading(false);
         return;
       }
@@ -116,7 +118,7 @@ export default function GradeSessionPage() {
       setDraft(initial);
       setLoading(false);
     },
-    [id]
+    [id, t]
   );
 
   useEffect(() => {
@@ -151,11 +153,11 @@ export default function GradeSessionPage() {
           accessToken: session.accessToken!,
           body: JSON.stringify({ grades }),
         });
-        if (res.ok) setMessage("Auto-saved.");
+        if (res.ok) setMessage(t("grades.session.autoSavedToast"));
       })();
     }, 30_000);
     return () => clearInterval(timer);
-  }, [editable, session?.accessToken, id]);
+  }, [editable, session?.accessToken, id, t]);
 
   function cellKey(studentId: string, subjectId: string) {
     return `${studentId}:${subjectId}`;
@@ -212,10 +214,10 @@ export default function GradeSessionPage() {
     const data = await res.json();
     setSaving(false);
     if (!res.ok) {
-      setError(data.error ?? "Save failed");
+      setError(data.error ?? t("grades.session.saveFailed"));
       return;
     }
-    setMessage(`Saved ${data.count} grade(s).`);
+    setMessage(t("grades.session.saved", { count: data.count }));
     await load(session.accessToken);
   }
 
@@ -228,7 +230,9 @@ export default function GradeSessionPage() {
         `template-${detail.session.programme.code}.xlsx`
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Download failed");
+      setError(
+        e instanceof Error ? e.message : t("grades.session.downloadFailed")
+      );
     }
   }
 
@@ -242,7 +246,9 @@ export default function GradeSessionPage() {
         `grades-${detail.session.programme.code}.${ext}`
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Export failed");
+      setError(
+        e instanceof Error ? e.message : t("grades.session.exportFailed")
+      );
     }
   }
 
@@ -259,14 +265,17 @@ export default function GradeSessionPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Import failed");
+      setError(data.error ?? t("grades.session.importFailed"));
       return;
     }
     const errors = data.errors ?? [];
     setImportErrors(errors);
     setImportOpen(false);
     setMessage(
-      `Import: ${data.accepted} grade(s) saved, ${data.rejected} row error(s).`
+      t("grades.session.importSummary", {
+        accepted: data.accepted,
+        rejected: data.rejected,
+      })
     );
     if (errors.length > 0) setImportErrorsOpen(true);
     await load(session.accessToken);
@@ -280,9 +289,15 @@ export default function GradeSessionPage() {
         session.accessToken,
         `transcript-${studentIdNumber}.pdf`
       );
-      setMessage(`Transcript downloaded for ${studentIdNumber}.`);
+      setMessage(
+        t("grades.session.transcriptDownloaded", { id: studentIdNumber })
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Transcript download failed");
+      setError(
+        e instanceof Error
+          ? e.message
+          : t("grades.session.transcriptDownloadFailed")
+      );
     }
   }
 
@@ -298,23 +313,23 @@ export default function GradeSessionPage() {
     setSubmitting(false);
     setSubmitOpen(false);
     if (!res.ok) {
-      setError(data.error ?? "Submit failed");
+      setError(data.error ?? t("grades.session.submitFailed"));
       return;
     }
-    setMessage("Session submitted to the Ministry.");
+    setMessage(t("grades.session.submittedToast"));
     await load(session.accessToken);
   }
 
   function rowMenuItems(row: StudentRow) {
     const items = [
       {
-        label: "View student",
+        label: t("grades.session.viewStudent"),
         onClick: () => setStudentDetail(row),
       },
     ];
     if (submitted) {
       items.push({
-        label: "Download transcript (PDF)",
+        label: t("grades.session.downloadTranscript"),
         onClick: () =>
           void downloadTranscript(row.student.id, row.student.studentIdNumber),
       });
@@ -324,18 +339,18 @@ export default function GradeSessionPage() {
 
   if (loading) {
     return (
-      <AppShell title="Grade session">
-        <p className="text-slate-500 py-8">Loading…</p>
+      <AppShell title={t("grades.session.title")}>
+        <p className="text-slate-500 py-8">{t("common.loading")}</p>
       </AppShell>
     );
   }
 
   if (!detail) {
     return (
-      <AppShell title="Grade session">
-        <Alert variant="error">{error ?? "Session not found"}</Alert>
+      <AppShell title={t("grades.session.title")}>
+        <Alert variant="error">{error ?? t("grades.session.notFound")}</Alert>
         <Link href="/institution/grades" className="text-renis-primary text-sm hover:underline">
-          ← All sessions
+          {t("grades.session.allSessions")}
         </Link>
       </AppShell>
     );
@@ -348,7 +363,7 @@ export default function GradeSessionPage() {
     <AppShell title={title}>
       <div className="mb-4">
         <Link href="/institution/grades" className="text-sm text-renis-primary hover:underline">
-          ← All sessions
+          {t("grades.session.allSessions")}
         </Link>
       </div>
 
@@ -358,12 +373,17 @@ export default function GradeSessionPage() {
             <StatusBadge status={gradeSession.status} />
             {stats ? (
               <span>
-                {stats.completionPercent}% complete · {stats.studentCount} students ·{" "}
-                {stats.subjectCount} subjects
+                {t("grades.session.stats", {
+                  percent: stats.completionPercent,
+                  students: stats.studentCount,
+                  subjects: stats.subjectCount,
+                })}
               </span>
             ) : null}
             {editable ? (
-              <span className="text-slate-500">· Auto-saves every 30s</span>
+              <span className="text-slate-500">
+                {t("grades.session.autoSaveHint")}
+              </span>
             ) : null}
           </span>
         }
@@ -377,28 +397,30 @@ export default function GradeSessionPage() {
                   className="renis-btn-primary"
                   onClick={() => void saveGrades()}
                 >
-                  {saving ? "Saving…" : "Save grades"}
+                  {saving
+                    ? t("common.saving")
+                    : t("grades.session.saveGrades")}
                 </button>
                 <button
                   type="button"
                   className="renis-btn-secondary"
                   onClick={() => setSubmitOpen(true)}
                 >
-                  Submit to ministry
+                  {t("grades.session.submitToMinistry")}
                 </button>
                 <button
                   type="button"
                   className="renis-btn-secondary"
                   onClick={() => void downloadTemplate()}
                 >
-                  Excel template
+                  {t("grades.session.excelTemplate")}
                 </button>
                 <button
                   type="button"
                   className="renis-btn-secondary"
                   onClick={() => setImportOpen(true)}
                 >
-                  Import Excel
+                  {t("grades.session.importExcel")}
                 </button>
               </>
             )}
@@ -407,14 +429,14 @@ export default function GradeSessionPage() {
               className="renis-btn-secondary"
               onClick={() => void exportGrades("csv")}
             >
-              Export CSV
+              {t("grades.session.exportCsv")}
             </button>
             <button
               type="button"
               className="renis-btn-secondary"
               onClick={() => void exportGrades("xlsx")}
             >
-              Export Excel
+              {t("grades.session.exportExcel")}
             </button>
           </>
         }
@@ -435,11 +457,11 @@ export default function GradeSessionPage() {
 
       {stats?.noEnrollments ? (
         <Alert variant="warning">
-          No students are enrolled in this programme.{" "}
+          {t("grades.session.noEnrollments")}{" "}
           <Link href="/institution/programmes" className="font-medium underline">
-            Enroll students
+            {t("grades.session.enrollStudents")}
           </Link>{" "}
-          before entering grades.
+          {t("grades.session.beforeGrades")}
         </Alert>
       ) : null}
 
@@ -453,8 +475,8 @@ export default function GradeSessionPage() {
       <Modal
         open={submitOpen}
         onClose={() => setSubmitOpen(false)}
-        title="Submit to Ministry"
-        description="After submission this session cannot be edited. Grades become visible in the national audit."
+        title={t("grades.session.submitTitle")}
+        description={t("grades.session.submitDescription")}
         footer={
           <div className="flex justify-end gap-2">
             <button
@@ -462,7 +484,7 @@ export default function GradeSessionPage() {
               className="renis-btn-secondary"
               onClick={() => setSubmitOpen(false)}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -470,21 +492,27 @@ export default function GradeSessionPage() {
               className="renis-btn-primary disabled:opacity-50"
               onClick={() => void confirmSubmit()}
             >
-              {submitting ? "Submitting…" : "Confirm submit"}
+              {submitting
+                ? t("grades.session.submitting")
+                : t("grades.session.confirmSubmit")}
             </button>
           </div>
         }
       >
         <p className="text-sm text-slate-700">
-          You are about to submit{" "}
-          <strong>{stats?.filledCells ?? 0}</strong> filled grade cell(s) for{" "}
-          <strong>{gradeSession.programme.name}</strong>,{" "}
-          {gradeSession.academicYear} {gradeSession.semester}.
+          {t("grades.session.submitPreview", {
+            filled: stats?.filledCells ?? 0,
+            programme: gradeSession.programme.name,
+            year: gradeSession.academicYear,
+            semester: gradeSession.semester,
+          })}
         </p>
         {stats && stats.studentsWithMissingGrades !== undefined &&
           stats.studentsWithMissingGrades > 0 && (
             <p className="mt-3 text-sm text-amber-800">
-              {stats.studentsWithMissingGrades} student(s) still have missing grades.
+              {t("grades.session.studentsMissing", {
+                count: stats.studentsWithMissingGrades,
+              })}
             </p>
           )}
       </Modal>
@@ -492,19 +520,19 @@ export default function GradeSessionPage() {
       <Modal
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        title="Import grades from Excel"
-        description="Use the downloaded template (.xlsx). Existing cells will be updated."
+        title={t("grades.session.importTitle")}
+        description={t("grades.session.importDescription")}
         footer={
           <div className="flex justify-end gap-2">
             <button type="button" className="renis-btn-secondary" onClick={() => setImportOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
               className="renis-btn-primary"
               onClick={() => importInputRef.current?.click()}
             >
-              Choose file…
+              {t("grades.session.chooseFile")}
             </button>
           </div>
         }
@@ -521,33 +549,36 @@ export default function GradeSessionPage() {
           }}
         />
         <p className="text-sm text-slate-600">
-          Need a blank grid? Download the{" "}
+          {t("grades.session.templateHelp")}{" "}
           <button
             type="button"
             className="text-renis-primary underline"
             onClick={() => void downloadTemplate()}
           >
-            Excel template
+            {t("grades.session.templateLink")}
           </button>{" "}
-          first.
+          {t("grades.session.templateAfter")}
         </p>
       </Modal>
 
       <Modal
         open={importErrorsOpen}
         onClose={() => setImportErrorsOpen(false)}
-        title="Import rejected rows"
+        title={t("grades.session.importErrorsTitle")}
         size="lg"
         footer={
           <button type="button" className="renis-btn-secondary" onClick={() => setImportErrorsOpen(false)}>
-            Close
+            {t("common.close")}
           </button>
         }
       >
         <ul className="max-h-64 overflow-y-auto text-sm list-disc list-inside space-y-1 text-amber-900">
           {importErrors.map((e, i) => (
             <li key={i}>
-              Row {e.row}: {e.message}
+              {t("grades.session.importRow", {
+                row: e.row,
+                message: e.message,
+              })}
             </li>
           ))}
         </ul>
@@ -556,14 +587,18 @@ export default function GradeSessionPage() {
       <Modal
         open={!!studentDetail}
         onClose={() => setStudentDetail(null)}
-        title={studentDetail ? studentLabel(studentDetail) : "Student"}
+        title={
+          studentDetail
+            ? studentLabel(studentDetail)
+            : t("grades.session.studentDetail")
+        }
         description={studentDetail?.student.studentIdNumber}
         size="lg"
         footer={
           studentDetail ? (
             <div className="flex justify-end gap-2">
               <button type="button" className="renis-btn-secondary" onClick={() => setStudentDetail(null)}>
-                Close
+                {t("common.close")}
               </button>
               {submitted ? (
                 <button
@@ -576,7 +611,7 @@ export default function GradeSessionPage() {
                     )
                   }
                 >
-                  Download transcript
+                  {t("grades.session.downloadTranscriptShort")}
                 </button>
               ) : null}
             </div>
@@ -587,34 +622,44 @@ export default function GradeSessionPage() {
           <div className="space-y-4">
             <dl className="grid gap-3 text-sm sm:grid-cols-3">
               <div>
-                <dt className="text-slate-500">Semester average</dt>
+                <dt className="text-slate-500">
+                  {t("grades.session.semesterAverage")}
+                </dt>
                 <dd className="font-medium text-slate-900">
                   {studentDetail.semesterAverage !== null
                     ? studentDetail.semesterAverage.toFixed(2)
-                    : "—"}
+                    : t("common.dash")}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">Credits validated</dt>
+                <dt className="text-slate-500">
+                  {t("grades.session.creditsValidated")}
+                </dt>
                 <dd className="font-medium text-slate-900">
                   {studentDetail.creditsValidated ?? 0}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">Annual average</dt>
+                <dt className="text-slate-500">
+                  {t("grades.session.annualAverage")}
+                </dt>
                 <dd className="font-medium text-slate-900">
                   {studentDetail.annualAverage !== null &&
                   studentDetail.annualAverage !== undefined
                     ? studentDetail.annualAverage.toFixed(2)
-                    : "—"}
+                    : t("common.dash")}
                 </dd>
               </div>
             </dl>
             <table className="w-full text-sm">
               <thead className="text-left text-slate-500 border-b border-slate-100">
                 <tr>
-                  <th className="py-2 pr-3">Subject</th>
-                  <th className="py-2 text-right">Grade</th>
+                  <th className="py-2 pr-3">
+                    {t("grades.session.subjectCol")}
+                  </th>
+                  <th className="py-2 text-right">
+                    {t("grades.session.gradeCol")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -628,7 +673,7 @@ export default function GradeSessionPage() {
                         {sub.name}
                       </td>
                       <td className="py-2 text-right font-medium">
-                        {val || "—"}
+                        {val || t("common.dash")}
                         {val ? <span className="text-slate-400 font-normal"> / 20</span> : null}
                       </td>
                     </tr>
@@ -647,18 +692,22 @@ export default function GradeSessionPage() {
             className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
             onClick={() => setSummaryOpen((o) => !o)}
           >
-            Pre-submission summary
+            {t("grades.session.summary")}
             <span className="text-slate-400">{summaryOpen ? "▾" : "▸"}</span>
           </button>
           {summaryOpen && (
             <div className="border-t border-slate-100 px-4 pb-4">
               <p className="text-sm text-slate-600 py-3">
-                {stats.filledCells} / {stats.expectedCells} cells filled
+                {t("grades.session.cellsFilled", {
+                  filled: stats.filledCells,
+                  expected: stats.expectedCells,
+                })}
                 {stats.studentsWithMissingGrades !== undefined &&
                   stats.studentsWithMissingGrades > 0 && (
                     <span className="text-amber-700">
-                      {" "}
-                      · {stats.studentsWithMissingGrades} student(s) with missing grades
+                      {t("grades.session.studentsMissingInline", {
+                        count: stats.studentsWithMissingGrades,
+                      })}
                     </span>
                   )}
               </p>
@@ -666,10 +715,18 @@ export default function GradeSessionPage() {
                 <table className="w-full text-xs">
                   <thead className="bg-slate-50 sticky top-0 text-slate-600">
                     <tr>
-                      <th className="px-2 py-1 text-left font-medium">Student</th>
-                      <th className="px-2 py-1 text-right font-medium">Sem. avg.</th>
-                      <th className="px-2 py-1 text-right font-medium">Credits</th>
-                      <th className="px-2 py-1 text-right font-medium">Annual avg.</th>
+                      <th className="px-2 py-1 text-left font-medium">
+                        {t("grades.session.col.student")}
+                      </th>
+                      <th className="px-2 py-1 text-right font-medium">
+                        {t("grades.session.col.semAvg")}
+                      </th>
+                      <th className="px-2 py-1 text-right font-medium">
+                        {t("grades.session.col.credits")}
+                      </th>
+                      <th className="px-2 py-1 text-right font-medium">
+                        {t("grades.session.col.annualAvg")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -686,13 +743,13 @@ export default function GradeSessionPage() {
                         <td className="px-2 py-1 text-right font-medium">
                           {row.semesterAverage !== null
                             ? row.semesterAverage.toFixed(2)
-                            : "—"}
+                            : t("common.dash")}
                         </td>
                         <td className="px-2 py-1 text-right">{row.creditsValidated ?? 0}</td>
                         <td className="px-2 py-1 text-right">
                           {row.annualAverage !== null && row.annualAverage !== undefined
                             ? row.annualAverage.toFixed(2)
-                            : "—"}
+                            : t("common.dash")}
                         </td>
                       </tr>
                     ))}
@@ -707,30 +764,33 @@ export default function GradeSessionPage() {
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <input
           type="search"
-          placeholder="Filter students…"
+          placeholder={t("grades.session.filterStudents")}
           className="renis-input max-w-xs"
           value={studentSearch}
           onChange={(e) => setStudentSearch(e.target.value)}
         />
         {studentSearch.trim() ? (
           <span className="text-sm text-slate-500">
-            {filteredTotal} of {detail.students.length}
+            {t("grades.session.matchCount", {
+              filtered: filteredTotal,
+              total: detail.students.length,
+            })}
           </span>
         ) : null}
         {editable ? (
           <span className="text-xs text-slate-500">
-            Empty cells highlighted in orange · click a row for student details
+            {t("grades.session.emptyHint")}
           </span>
         ) : null}
       </div>
 
       {detail.students.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-          No enrolled students in this programme.
+          {t("grades.session.noEnrolledStudents")}
         </div>
       ) : filteredStudents.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-          No students match your search.
+          {t("grades.session.noMatch")}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -738,7 +798,7 @@ export default function GradeSessionPage() {
             <thead className="bg-slate-50 text-left text-slate-600">
               <tr>
                 <th className="px-2 py-2 sticky left-0 z-10 bg-slate-50 font-medium">
-                  Student
+                  {t("grades.session.col.student")}
                 </th>
                 {detail.subjects.map((sub) => (
                   <th
@@ -749,11 +809,18 @@ export default function GradeSessionPage() {
                     {sub.code}
                   </th>
                 ))}
-                <th className="px-2 py-2 font-medium">Avg</th>
-                <th className="px-2 py-2 font-medium" title="Credits validated">
-                  Cr.
+                <th className="px-2 py-2 font-medium">
+                  {t("grades.session.col.avg")}
                 </th>
-                <th className="px-2 py-2 font-medium">Yr avg</th>
+                <th
+                  className="px-2 py-2 font-medium"
+                  title={t("grades.session.creditsTooltip")}
+                >
+                  {t("grades.session.col.credShort")}
+                </th>
+                <th className="px-2 py-2 font-medium">
+                  {t("grades.session.col.yrAvg")}
+                </th>
                 <th className="px-2 py-2 w-10" />
               </tr>
             </thead>
@@ -799,19 +866,23 @@ export default function GradeSessionPage() {
                             }
                           />
                         ) : (
-                          <span className="tabular-nums">{draft[key] || "—"}</span>
+                          <span className="tabular-nums">{draft[key] || t("common.dash")}</span>
                         )}
                       </td>
                     );
                   })}
                   <td className="px-2 py-2 font-medium tabular-nums">
-                    {row.semesterAverage ?? "—"}
+                    {row.semesterAverage ?? t("common.dash")}
                   </td>
                   <td className="px-2 py-2 tabular-nums">{row.creditsValidated ?? 0}</td>
-                  <td className="px-2 py-2 tabular-nums">{row.annualAverage ?? "—"}</td>
+                  <td className="px-2 py-2 tabular-nums">
+                    {row.annualAverage ?? t("common.dash")}
+                  </td>
                   <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                     <RowMenu
-                      label={`Actions for ${row.student.studentIdNumber}`}
+                      label={t("common.actionsFor", {
+                        target: row.student.studentIdNumber,
+                      })}
                       items={rowMenuItems(row)}
                     />
                   </td>

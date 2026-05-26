@@ -7,7 +7,7 @@ import { corsOptions, withCors } from "@/lib/cors";
 import { institutionListWhere } from "@/lib/scope";
 import { UserRole } from "@renis/database";
 import { paginatedQuery } from "@/lib/prisma-pagination";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const createSchema = z.object({
   programmeId: z.string().uuid(),
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   try {
     body = createSchema.parse(await req.json());
   } catch {
-    return withCors(NextResponse.json({ error: "Invalid payload" }, { status: 400 }));
+    return withCors(apiError("api.error.invalidPayload", 400));
   }
 
   const programmeWhere =
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     where: programmeWhere,
   });
   if (!programme) {
-    return withCors(NextResponse.json({ error: "Programme not found" }, { status: 404 }));
+    return withCors(apiError("api.programmes.notFound", 404));
   }
 
   const institutionId = programme.institutionId;

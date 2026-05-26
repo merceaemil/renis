@@ -1,10 +1,22 @@
+"use client";
+
 import type { ReactNode } from "react";
 import type { VerifyLookupResult } from "@/lib/verify-lookup";
+import { useLocale } from "@/lib/i18n/LocaleProvider";
+import type { Locale } from "@/lib/i18n";
 
-function formatDate(value: Date | string | null | undefined): string {
+const dateLocale: Record<Locale, string> = {
+  en: "en-GB",
+  fr: "fr-FR",
+};
+
+function formatDate(
+  value: Date | string | null | undefined,
+  locale: Locale
+): string {
   if (!value) return "—";
   const d = value instanceof Date ? value : new Date(value);
-  return d.toLocaleString("en-GB", {
+  return d.toLocaleString(dateLocale[locale], {
     dateStyle: "long",
     timeStyle: "short",
   });
@@ -70,6 +82,8 @@ export function VerifyResultCard({
   result: VerifyLookupResult;
   code?: string;
 }) {
+  const { locale, t } = useLocale();
+
   if (result.status === "TRANSCRIPT") {
     return (
       <article>
@@ -79,25 +93,28 @@ export function VerifyResultCard({
           </svg>
         </IconCircle>
         <div className="text-center mb-6">
-          <StatusBadge tone="success">Transcript verified</StatusBadge>
+          <StatusBadge tone="success">{t("verify.transcript.badge")}</StatusBadge>
           <h2 className="mt-3 text-xl font-semibold text-slate-900">
-            Official academic transcript
+            {t("verify.transcript.title")}
           </h2>
           <p className="mt-1 text-sm text-slate-600">
-            This record is registered in the national RENIS-BI system.
+            {t("verify.transcript.subtitle")}
           </p>
         </div>
         <div className="rounded-lg bg-slate-50/80 px-4">
-          <Row label="Institution" value={result.institution} />
-          <Row label="Programme" value={result.programme} />
+          <Row label={t("verify.field.institution")} value={result.institution} />
+          <Row label={t("verify.field.programme")} value={result.programme} />
           <Row
-            label="Academic period"
+            label={t("verify.field.academicPeriod")}
             value={`${result.academicYear} · ${result.semester}`}
           />
-          <Row label="Holder" value={result.holder} />
-          <Row label="Verified on" value={formatDate(result.verifiedAt)} />
+          <Row label={t("verify.field.holder")} value={result.holder} />
+          <Row
+            label={t("verify.field.verifiedOn")}
+            value={formatDate(result.verifiedAt, locale)}
+          />
         </div>
-        {code ? <CodeFooter code={code} /> : null}
+        {code ? <CodeFooter code={code} label={t("verify.code", { code })} /> : null}
       </article>
     );
   }
@@ -111,22 +128,32 @@ export function VerifyResultCard({
           </svg>
         </IconCircle>
         <div className="text-center mb-6">
-          <StatusBadge tone="success">Diploma verified</StatusBadge>
+          <StatusBadge tone="success">{t("verify.diploma.badge")}</StatusBadge>
           <h2 className="mt-3 text-xl font-semibold text-slate-900">{result.title}</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Published diploma on file with the Ministry of Education.
+            {t("verify.diploma.subtitle")}
           </p>
         </div>
         <div className="rounded-lg bg-slate-50/80 px-4">
-          <Row label="Type" value={result.type} />
-          {result.programme ? <Row label="Programme" value={result.programme} /> : null}
-          <Row label="Institution" value={result.institution} />
-          <Row label="Graduation year" value={String(result.graduationYear)} />
-          {result.honors ? <Row label="Honors" value={result.honors} /> : null}
-          <Row label="Holder" value={result.holder} />
-          <Row label="Published" value={formatDate(result.publishedAt)} />
+          <Row label={t("verify.field.type")} value={result.type} />
+          {result.programme ? (
+            <Row label={t("verify.field.programme")} value={result.programme} />
+          ) : null}
+          <Row label={t("verify.field.institution")} value={result.institution} />
+          <Row
+            label={t("verify.field.graduationYear")}
+            value={String(result.graduationYear)}
+          />
+          {result.honors ? (
+            <Row label={t("verify.field.honors")} value={result.honors} />
+          ) : null}
+          <Row label={t("verify.field.holder")} value={result.holder} />
+          <Row
+            label={t("verify.field.published")}
+            value={formatDate(result.publishedAt, locale)}
+          />
         </div>
-        {code ? <CodeFooter code={code} /> : null}
+        {code ? <CodeFooter code={code} label={t("verify.code", { code })} /> : null}
       </article>
     );
   }
@@ -140,16 +167,20 @@ export function VerifyResultCard({
           </svg>
         </IconCircle>
         <div className="text-center mb-4">
-          <StatusBadge tone="danger">Revoked</StatusBadge>
-          <h2 className="mt-3 text-xl font-semibold text-slate-900">Diploma revoked</h2>
+          <StatusBadge tone="danger">{t("verify.revoked.badge")}</StatusBadge>
+          <h2 className="mt-3 text-xl font-semibold text-slate-900">
+            {t("verify.revoked.title")}
+          </h2>
           <p className="mt-2 text-sm text-slate-600">
-            This diploma is no longer valid in the national register.
+            {t("verify.revoked.body")}
             {result.revokedAt
-              ? ` Revoked on ${formatDate(result.revokedAt)}.`
+              ? ` ${t("verify.revoked.on", {
+                  date: formatDate(result.revokedAt, locale),
+                })}`
               : null}
           </p>
         </div>
-        {code ? <CodeFooter code={code} /> : null}
+        {code ? <CodeFooter code={code} label={t("verify.code", { code })} /> : null}
       </article>
     );
   }
@@ -162,19 +193,24 @@ export function VerifyResultCard({
         </svg>
       </IconCircle>
       <div className="text-center">
-        <StatusBadge tone="neutral">Not found</StatusBadge>
-        <h2 className="mt-3 text-lg font-semibold text-slate-900">Unknown code</h2>
+        <StatusBadge tone="neutral">{t("verify.unknown.badge")}</StatusBadge>
+        <h2 className="mt-3 text-lg font-semibold text-slate-900">
+          {t("verify.unknown.title")}
+        </h2>
         <p className="mt-2 text-sm text-slate-600">{result.message}</p>
       </div>
-      {code ? <CodeFooter code={code} /> : null}
+      {code ? <CodeFooter code={code} label={t("verify.code", { code })} /> : null}
     </article>
   );
 }
 
-function CodeFooter({ code }: { code: string }) {
+function CodeFooter({ code, label }: { code: string; label: string }) {
   return (
-    <p className="mt-6 text-center text-xs text-slate-400 font-mono break-all">
-      Verification code: {code}
+    <p
+      className="mt-6 text-center text-xs text-slate-400 font-mono break-all"
+      data-code={code}
+    >
+      {label}
     </p>
   );
 }

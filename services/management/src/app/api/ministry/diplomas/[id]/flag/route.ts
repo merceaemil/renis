@@ -4,7 +4,7 @@ import { logAudit, sendDiplomaAnomalyFlagEmail } from "@renis/core";
 import { canViewMinistryDashboard } from "@renis/core/permissions";
 import { DiplomaStatus, prisma, UserRole, UserStatus } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const bodySchema = z.object({
   message: z.string().min(10).max(4000),
@@ -27,7 +27,7 @@ export async function POST(
   try {
     body = bodySchema.parse(await req.json());
   } catch {
-    return withCors(NextResponse.json({ error: "Invalid payload" }, { status: 400 }));
+    return withCors(apiError("api.error.invalidPayload", 400));
   }
 
   const diploma = await prisma.diploma.findFirst({
@@ -43,7 +43,7 @@ export async function POST(
     },
   });
   if (!diploma) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
 
   await logAudit({

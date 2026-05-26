@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 export function VerifyPageShell({
   children,
@@ -8,18 +12,21 @@ export function VerifyPageShell({
   children: ReactNode;
   subtitle?: string;
 }) {
+  const t = useT();
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-renis-primary via-slate-800 to-slate-900">
-      <header className="px-4 pt-8 pb-4 text-center text-white">
+      <header className="px-4 pt-8 pb-4 text-center text-white relative">
+        <div className="absolute top-4 right-4">
+          <LanguageSwitcher variant="sidebar" />
+        </div>
         <p className="text-xs font-medium uppercase tracking-widest text-renis-accent">
-          Republic of Burundi
+          {t("verify.country")}
         </p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-          RENIS-BI
+          {t("common.app.brand")}
         </h1>
         <p className="mt-1 text-sm text-slate-300 max-w-md mx-auto">
-          {subtitle ??
-            "National Register of Diplomas and Academic Transcripts — public verification"}
+          {subtitle ?? t("verify.tagline")}
         </p>
       </header>
 
@@ -30,14 +37,14 @@ export function VerifyPageShell({
       </main>
 
       <footer className="px-4 pb-6 text-center text-xs text-slate-400">
-        <p>Ministry of National Education — official verification service</p>
+        <p>{t("verify.footer")}</p>
         <p className="mt-2">
           <Link href="/verify" className="text-renis-accent hover:underline">
-            Verify another code
+            {t("verify.verifyAnother")}
           </Link>
           {" · "}
           <Link href="/login" className="text-slate-400 hover:text-white">
-            Administrator sign-in
+            {t("verify.adminLogin")}
           </Link>
         </p>
       </footer>

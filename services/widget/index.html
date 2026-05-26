@@ -144,7 +144,7 @@
       </section>
 
       <section class="panel">
-        <h2>Embed (this page)</h2>
+        <h2>Embed (English)</h2>
         <p class="embed-label">
           Target <code>#renis-verify</code> — API:
           <code id="api-url-label">http://localhost:3000</code>
@@ -152,6 +152,21 @@
         <div
           id="renis-verify"
           data-api-url="http://localhost:3000"
+          language="en"
+          style="max-width: 420px"
+        ></div>
+      </section>
+
+      <section class="panel">
+        <h2>Embed (Français — <code>language="fr"</code>)</h2>
+        <p class="embed-label">
+          Use the <code>language</code> attribute on the container element
+          (supported values: <code>en</code>, <code>fr</code>).
+        </p>
+        <div
+          data-renis-verify
+          data-api-url="http://localhost:3000"
+          language="fr"
           style="max-width: 420px"
         ></div>
       </section>
@@ -167,7 +182,9 @@
             padding: 0.75rem;
             border-radius: 8px;
           "
-        ><code>&lt;div id="renis-verify" data-api-url="http://localhost:3000"&gt;&lt;/div&gt;
+        ><code>&lt;div id="renis-verify"
+     data-api-url="http://localhost:3000"
+     language="fr"&gt;&lt;/div&gt;
 &lt;script src="http://localhost:3001/renis-verify.iife.js"&gt;&lt;/script&gt;</code></pre>
       </section>
     </div>

@@ -5,7 +5,7 @@ import { canManageInstitutions } from "@renis/core/permissions";
 import { prisma, UserRole } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { paginatedQuery } from "@/lib/prisma-pagination";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const createInstitutionSchema = z.object({
   code: z.string().min(2).max(32),
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     body = createInstitutionSchema.parse(await req.json());
   } catch (e) {
     return withCors(
-      NextResponse.json({ error: "Invalid payload", details: e }, { status: 400 })
+      apiError("api.error.invalidPayload", 400, undefined, { details: e })
     );
   }
 
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   });
   if (existing) {
     return withCors(
-      NextResponse.json({ error: "Institution code already exists." }, { status: 409 })
+      apiError("api.institutions.codeExists", 409)
     );
   }
 

@@ -4,7 +4,7 @@ import { canManageDiplomas, canViewMinistryDashboard } from "@renis/core/permiss
 import { DiplomaStatus, prisma } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { institutionWhere } from "@/lib/scope";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 export async function OPTIONS() {
   return corsOptions();
@@ -33,7 +33,7 @@ export async function GET(
   });
   if (!diploma?.pdfPath) {
     return withCors(
-      NextResponse.json({ error: "PDF not available" }, { status: 404 })
+      apiError("api.diplomas.pdfNotAvailable", 404)
     );
   }
 
@@ -42,7 +42,7 @@ export async function GET(
     return withCors(NextResponse.json({ url, expiresIn: 3600 }));
   } catch {
     return withCors(
-      NextResponse.json({ error: "Could not generate download link" }, { status: 503 })
+      apiError("api.diplomas.downloadLinkFailed", 503)
     );
   }
 }

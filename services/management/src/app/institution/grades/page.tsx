@@ -15,6 +15,7 @@ import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { withInstitutionQuery } from "@/lib/api-scope-query";
 import { apiFetch } from "@/lib/api";
 import { listApiUrl, normalizeListResponse } from "@/lib/list-response";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type Programme = { id: string; code: string; name: string };
 type GradeSession = {
@@ -30,6 +31,7 @@ type GradeSession = {
 export default function GradesPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [scopeId, setScopeId] = useState("");
@@ -53,7 +55,7 @@ export default function GradesPage() {
         scopeId
       );
       const res = await apiFetch(url, { accessToken: session.accessToken });
-      if (!res.ok) throw new Error("Could not load grade sessions");
+      if (!res.ok) throw new Error(t("grades.couldNotLoad"));
       return normalizeListResponse<GradeSession>(await res.json());
     },
     [session?.accessToken, scopeId]
@@ -95,7 +97,7 @@ export default function GradesPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Creation failed");
+      setError(data.error ?? t("grades.creationFailed"));
       return;
     }
     setCreateOpen(false);
@@ -103,18 +105,18 @@ export default function GradesPage() {
   }
 
   return (
-    <AppShell title="Grades & transcripts">
+    <AppShell title={t("grades.title")}>
       <InstitutionScopeBar onChange={setScopeId} />
 
       <PageHeader
-        description="Create a grade session (DRAFT), enter grades in the grid, then submit for ministry review."
+        description={t("grades.description")}
         actions={
           <button
             type="button"
             className="renis-btn-primary"
             onClick={() => setCreateOpen(true)}
           >
-            New grade session
+            {t("grades.newSession")}
           </button>
         }
       />
@@ -128,8 +130,8 @@ export default function GradesPage() {
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="New grade session"
-        description="Only enrolled students in the programme appear in the grid."
+        title={t("grades.newSessionTitle")}
+        description={t("grades.newSessionHint")}
         footer={
           <div className="flex justify-end gap-2">
             <button
@@ -137,24 +139,24 @@ export default function GradesPage() {
               className="renis-btn-secondary"
               onClick={() => setCreateOpen(false)}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button type="submit" form="grade-session-form" className="renis-btn-primary">
-              Create & open
+              {t("grades.createOpen")}
             </button>
           </div>
         }
       >
         <form id="grade-session-form" className="grid gap-4" onSubmit={handleCreate}>
           <label className="block text-sm">
-            <span className="text-slate-600">Programme</span>
+            <span className="text-slate-600">{t("grades.field.programme")}</span>
             <select
               required
               className="renis-input mt-1"
               value={form.programmeId}
               onChange={(e) => setForm({ ...form, programmeId: e.target.value })}
             >
-              <option value="">— Select programme —</option>
+              <option value="">{t("grades.field.selectProgramme")}</option>
               {programmes.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} ({p.code})
@@ -164,7 +166,9 @@ export default function GradesPage() {
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block text-sm">
-              <span className="text-slate-600">Academic year</span>
+              <span className="text-slate-600">
+                {t("grades.field.academicYear")}
+              </span>
               <input
                 required
                 className="renis-input mt-1"
@@ -175,7 +179,9 @@ export default function GradesPage() {
               />
             </label>
             <label className="block text-sm">
-              <span className="text-slate-600">Semester</span>
+              <span className="text-slate-600">
+                {t("grades.field.semester")}
+              </span>
               <select
                 className="renis-input mt-1"
                 value={form.semester}
@@ -190,10 +196,10 @@ export default function GradesPage() {
       </Modal>
 
       {loading ? (
-        <p className="text-slate-500 py-8">Loading…</p>
+        <p className="text-slate-500 py-8">{t("common.loading")}</p>
       ) : total === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-          No sessions yet. Create one to start entering grades.
+          {t("grades.empty")}
         </div>
       ) : (
         <PaginatedTable
@@ -207,11 +213,21 @@ export default function GradesPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-600">
               <tr>
-                <th className="px-4 py-3 font-medium">Programme</th>
-                <th className="px-4 py-3 font-medium">Year</th>
-                <th className="px-4 py-3 font-medium">Semester</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Grades</th>
+                <th className="px-4 py-3 font-medium">
+                  {t("grades.field.programme")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("grades.field.year")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("grades.field.semester")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("grades.field.status")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("grades.field.grades")}
+                </th>
               </tr>
             </thead>
             <tbody>

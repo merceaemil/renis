@@ -11,7 +11,7 @@ import QRCode from "qrcode";
 import { corsOptions, withCors } from "@/lib/cors";
 import { loadGradeSessionGrid } from "@/lib/grade-session-grid";
 import { sessionInstitutionFilter } from "@/lib/scope";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 import { htmlToPdf } from "@/lib/pdf/html-to-pdf";
 import { renderTranscriptHtml } from "@/lib/pdf/templates/transcript";
 import {
@@ -37,17 +37,12 @@ export async function GET(
     sessionInstitutionFilter(user)
   );
   if (!grid || grid.session.status !== GradeStatus.SUBMITTED) {
-    return withCors(
-      NextResponse.json(
-        { error: "Session not found or not submitted." },
-        { status: 404 }
-      )
-    );
+    return withCors(apiError("api.gradeSessions.notSubmittedOrNotFound", 404));
   }
 
   const row = grid.students.find((s) => s.student.id === studentId);
   if (!row) {
-    return withCors(NextResponse.json({ error: "Student not found" }, { status: 404 }));
+    return withCors(apiError("api.students.notFound", 404));
   }
 
   const verifyCode = await ensureTranscriptVerificationCode(

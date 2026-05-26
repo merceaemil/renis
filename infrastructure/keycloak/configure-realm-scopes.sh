@@ -13,6 +13,10 @@ REQUIRED_DEFAULT_SCOPES="${KEYCLOAK_REQUIRED_DEFAULT_SCOPES:-openid profile emai
 # Branded UI theme — applied to existing realms since --import-realm only runs on first start.
 LOGIN_THEME="${KEYCLOAK_LOGIN_THEME:-renis}"
 EMAIL_THEME="${KEYCLOAK_EMAIL_THEME:-renis}"
+# Internationalization — also re-applied on existing realms (English + French).
+I18N_ENABLED="${KEYCLOAK_I18N_ENABLED:-true}"
+I18N_SUPPORTED_LOCALES="${KEYCLOAK_I18N_SUPPORTED_LOCALES:-en,fr}"
+I18N_DEFAULT_LOCALE="${KEYCLOAK_I18N_DEFAULT_LOCALE:-en}"
 
 KCADM=/opt/keycloak/bin/kcadm.sh
 
@@ -111,6 +115,32 @@ if [[ -n "${LOGIN_THEME}" || -n "${EMAIL_THEME}" ]]; then
   [[ -n "${EMAIL_THEME}" ]] && UPDATE_ARGS+=("-s" "emailTheme=${EMAIL_THEME}")
   "${KCADM}" update "realms/${REALM}" "${UPDATE_ARGS[@]}" || \
     echo "configure-realm-scopes: warning: failed to update realm themes" >&2
+fi
+
+# Ensure the realm has internationalization on with the supported locales.
+# Keycloak ignores realm-level keys from realm-renis.json on subsequent boots.
+if [[ "${I18N_ENABLED}" == "true" ]]; then
+  echo "configure-realm-scopes: ensuring i18n (locales=${I18N_SUPPORTED_LOCALES}, default=${I18N_DEFAULT_LOCALE})"
+  # kcadm needs a JSON array for supportedLocales: split CSV and quote each value.
+  LOCALES_JSON="["
+  FIRST=1
+  IFS=',' read -ra LOCALE_ARR <<< "${I18N_SUPPORTED_LOCALES}"
+  for L in "${LOCALE_ARR[@]}"; do
+    L="${L//[[:space:]]/}"
+    [[ -z "${L}" ]] && continue
+    if [[ "${FIRST}" -eq 1 ]]; then
+      LOCALES_JSON+="\"${L}\""
+      FIRST=0
+    else
+      LOCALES_JSON+=",\"${L}\""
+    fi
+  done
+  LOCALES_JSON+="]"
+  "${KCADM}" update "realms/${REALM}" \
+    -s "internationalizationEnabled=true" \
+    -s "defaultLocale=${I18N_DEFAULT_LOCALE}" \
+    -s "supportedLocales=${LOCALES_JSON}" || \
+    echo "configure-realm-scopes: warning: failed to update realm i18n settings" >&2
 fi
 
 echo "configure-realm-scopes: done"

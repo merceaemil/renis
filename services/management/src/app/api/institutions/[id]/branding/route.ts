@@ -8,7 +8,7 @@ import {
 import { canConfigureInstitutionSettings } from "@renis/core/permissions";
 import { prisma, UserRole } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const ASSETS = ["logo", "signature-institution", "signature-ministry"] as const;
 type AssetKind = (typeof ASSETS)[number];
@@ -53,7 +53,7 @@ export async function POST(
     where: { id: institutionId },
   });
   if (!institution) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
 
   const form = await req.formData();
@@ -61,18 +61,13 @@ export async function POST(
   const file = form.get("file");
 
   if (!asset || !ASSETS.includes(asset as AssetKind)) {
-    return withCors(
-      NextResponse.json(
-        { error: "asset must be logo, signature-institution, or signature-ministry" },
-        { status: 400 }
-      )
-    );
+    return withCors(apiError("api.branding.invalidAsset", 400));
   }
   if (!(file instanceof File) || file.size === 0) {
-    return withCors(NextResponse.json({ error: "file is required" }, { status: 400 }));
+    return withCors(apiError("api.branding.fileRequired", 400));
   }
   if (file.size > 2 * 1024 * 1024) {
-    return withCors(NextResponse.json({ error: "Max file size 2 MB" }, { status: 400 }));
+    return withCors(apiError("api.branding.maxFileSize", 400));
   }
 
   const ext =
@@ -83,7 +78,7 @@ export async function POST(
         : file.name.split(".").pop()?.toLowerCase() ?? "png";
   if (!["png", "jpg", "jpeg", "webp"].includes(ext)) {
     return withCors(
-      NextResponse.json({ error: "Use PNG, JPEG, or WebP images." }, { status: 400 })
+      apiError("api.branding.invalidImageType", 400)
     );
   }
 

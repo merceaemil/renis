@@ -16,6 +16,8 @@ import type {
   ConfigCheck,
   DiagnosticsPayload,
 } from "@/lib/system-diagnostics";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import type { TranslationKey } from "@/lib/i18n";
 
 function HealthCard({
   title,
@@ -28,6 +30,7 @@ function HealthCard({
   subtitle?: string;
   children?: ReactNode;
 }) {
+  const t = useT();
   const tone =
     ok === null
       ? "border-slate-200"
@@ -41,10 +44,10 @@ function HealthCard({
         {ok !== null ? (
           <StatusBadge
             status={ok ? "ACTIVE" : "REVOKED"}
-            label={ok ? "OK" : "Issue"}
+            label={ok ? t("status.OK") : t("status.Issue")}
           />
         ) : (
-          <StatusBadge status="INACTIVE" label="N/A" />
+          <StatusBadge status="INACTIVE" label={t("status.NA")} />
         )}
       </div>
       {subtitle ? <p className="text-xs text-slate-600 mb-2">{subtitle}</p> : null}
@@ -54,13 +57,14 @@ function HealthCard({
 }
 
 function ConfigStatusBadge({ status }: { status: ConfigCheck["status"] }) {
+  const t = useT();
   if (status === "ok") {
-    return <StatusBadge status="ACTIVE" label="Set" />;
+    return <StatusBadge status="ACTIVE" label={t("status.Set")} />;
   }
   if (status === "missing") {
-    return <StatusBadge status="REVOKED" label="Missing" />;
+    return <StatusBadge status="REVOKED" label={t("status.Missing")} />;
   }
-  return <StatusBadge status="INACTIVE" label="Not set" />;
+  return <StatusBadge status="INACTIVE" label={t("status.NotSet")} />;
 }
 
 function StatTile({
@@ -101,17 +105,28 @@ function overallAlertVariant(
   return "error";
 }
 
-function overallMessage(overall: DiagnosticsPayload["overall"]) {
-  if (overall === "healthy") return "All critical checks passed.";
-  if (overall === "degraded") {
-    return "System is running but some optional services or configuration need attention.";
-  }
-  return "Critical failure — database or core configuration is unavailable.";
-}
+const overallMessageKey: Record<
+  DiagnosticsPayload["overall"],
+  TranslationKey
+> = {
+  healthy: "diagnostics.statusHealthy",
+  degraded: "diagnostics.statusDegraded",
+  unhealthy: "diagnostics.statusUnhealthy",
+};
+
+const overallLabelKey: Record<
+  DiagnosticsPayload["overall"],
+  TranslationKey
+> = {
+  healthy: "diagnostics.overall.healthy",
+  degraded: "diagnostics.overall.degraded",
+  unhealthy: "diagnostics.overall.unhealthy",
+};
 
 export default function DiagnosticsPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
   const [data, setData] = useState<DiagnosticsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -124,7 +139,7 @@ export default function DiagnosticsPage() {
       const res = await apiFetch("/api/admin/diagnostics", {
         accessToken: session.accessToken,
       });
-      if (!res.ok) throw new Error("Could not load diagnostics");
+      if (!res.ok) throw new Error(t("diagnostics.couldNotLoad"));
       setData(await res.json());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
@@ -132,7 +147,7 @@ export default function DiagnosticsPage() {
     } finally {
       setLoading(false);
     }
-  }, [session?.accessToken]);
+  }, [session?.accessToken, t]);
 
   useEffect(() => {
     if (session && !canManageInstitutions(session.user?.role)) {
@@ -153,9 +168,9 @@ export default function DiagnosticsPage() {
   }
 
   return (
-    <AppShell title="System diagnostics">
+    <AppShell title={t("diagnostics.title")}>
       <PageHeader
-        description="Super Admin health check: connectivity, configuration, data volumes, and recent activity."
+        description={t("diagnostics.description")}
         actions={
           <button
             type="button"
@@ -163,7 +178,7 @@ export default function DiagnosticsPage() {
             disabled={loading}
             onClick={() => void load()}
           >
-            {loading ? "Refreshing…" : "Refresh"}
+            {loading ? t("common.refreshing") : t("common.refresh")}
           </button>
         }
       />
@@ -171,14 +186,18 @@ export default function DiagnosticsPage() {
       {error ? <Alert variant="error" onDismiss={() => setError(null)}>{error}</Alert> : null}
 
       {loading && !data ? (
-        <p className="text-slate-500 py-8">Loading diagnostics…</p>
+        <p className="text-slate-500 py-8">{t("diagnostics.loading")}</p>
       ) : null}
 
       {data ? (
         <div className="space-y-6">
           <Alert variant={overallAlertVariant(data.overall)}>
-            <p className="font-medium capitalize">{data.overall} system status</p>
-            <p className="mt-1">{overallMessage(data.overall)}</p>
+            <p className="font-medium">
+              {t("diagnostics.systemStatus", {
+                status: t(overallLabelKey[data.overall]),
+              })}
+            </p>
+            <p className="mt-1">{t(overallMessageKey[data.overall])}</p>
             {data.issues.length > 0 ? (
               <ul className="mt-3 list-disc list-inside space-y-1 text-sm">
                 {data.issues.map((issue) => (
@@ -187,18 +206,21 @@ export default function DiagnosticsPage() {
               </ul>
             ) : null}
             <p className="mt-2 text-xs opacity-80">
-              Last checked {new Date(data.checkedAt).toLocaleString()} ·{" "}
-              {data.environment} · v{data.version}
+              {t("diagnostics.lastChecked", {
+                when: new Date(data.checkedAt).toLocaleString(),
+                environment: data.environment,
+                version: data.version,
+              })}
             </p>
           </Alert>
 
           <section className="grid gap-4 md:grid-cols-3">
             <HealthCard
-              title="PostgreSQL"
+              title={t("diagnostics.postgres")}
               ok={data.database.ok}
               subtitle={
                 data.database.latencyMs !== null
-                  ? `Round-trip ${data.database.latencyMs} ms`
+                  ? t("diagnostics.roundTrip", { ms: data.database.latencyMs })
                   : undefined
               }
             >
@@ -208,12 +230,12 @@ export default function DiagnosticsPage() {
             </HealthCard>
 
             <HealthCard
-              title="Object storage (MinIO)"
+              title={t("diagnostics.storage")}
               ok={data.storage.configured ? data.storage.ok : null}
               subtitle={
                 data.storage.configured
-                  ? `Bucket: ${data.storage.bucket}`
-                  : "MINIO_ENDPOINT not configured"
+                  ? t("diagnostics.bucket", { bucket: data.storage.bucket })
+                  : t("diagnostics.storageMissing")
               }
             >
               {data.storage.endpoint ? (
@@ -227,9 +249,11 @@ export default function DiagnosticsPage() {
             </HealthCard>
 
             <HealthCard
-              title="Keycloak OIDC"
+              title={t("diagnostics.keycloak")}
               ok={data.keycloak.configured ? data.keycloak.ok : null}
-              subtitle={data.keycloak.issuer ?? "Issuer not configured"}
+              subtitle={
+                data.keycloak.issuer ?? t("diagnostics.issuerMissing")
+              }
             >
               {data.keycloak.error ? (
                 <p className="text-xs text-red-800">{data.keycloak.error}</p>
@@ -238,14 +262,22 @@ export default function DiagnosticsPage() {
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="font-medium text-slate-900 mb-3">Configuration</h2>
+            <h2 className="font-medium text-slate-900 mb-3">
+              {t("diagnostics.configuration")}
+            </h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-left text-slate-500 border-b border-slate-100">
                   <tr>
-                    <th className="py-2 pr-4 font-medium">Variable</th>
-                    <th className="py-2 pr-4 font-medium">Value</th>
-                    <th className="py-2 font-medium">Status</th>
+                    <th className="py-2 pr-4 font-medium">
+                      {t("diagnostics.col.variable")}
+                    </th>
+                    <th className="py-2 pr-4 font-medium">
+                      {t("diagnostics.col.value")}
+                    </th>
+                    <th className="py-2 font-medium">
+                      {t("diagnostics.col.status")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -259,7 +291,7 @@ export default function DiagnosticsPage() {
                         ) : null}
                       </td>
                       <td className="py-2 pr-4 font-mono text-xs break-all text-slate-700">
-                        {row.value ?? "—"}
+                        {row.value ?? t("common.dash")}
                       </td>
                       <td className="py-2">
                         <ConfigStatusBadge status={row.status} />
@@ -272,26 +304,73 @@ export default function DiagnosticsPage() {
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="font-medium text-slate-900 mb-3">Data volumes</h2>
+            <h2 className="font-medium text-slate-900 mb-3">
+              {t("diagnostics.dataVolumes")}
+            </h2>
             <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-              <StatTile label="Institutions" value={data.counts.institutions} href="/admin/institutions" />
-              <StatTile label="Active institutions" value={data.counts.institutionsActive} />
-              <StatTile label="Users" value={data.counts.users} href="/admin/users" />
-              <StatTile label="Students" value={data.counts.students} href="/institution/students" />
-              <StatTile label="Programmes" value={data.counts.programmes} href="/institution/programmes" />
-              <StatTile label="Subjects" value={data.counts.subjects} />
-              <StatTile label="Grade sessions" value={data.counts.gradeSessions} href="/institution/grades" />
-              <StatTile label="Grade cells" value={data.counts.grades} />
-              <StatTile label="Diplomas" value={data.counts.diplomas} href="/institution/diplomas" />
-              <StatTile label="Enrollments" value={data.counts.enrollments} />
-              <StatTile label="Transcript codes" value={data.counts.transcriptRecords} />
-              <StatTile label="Audit log entries" value={data.counts.auditLogs} href="/admin/audit" />
+              <StatTile
+                label={t("diagnostics.tile.institutions")}
+                value={data.counts.institutions}
+                href="/admin/institutions"
+              />
+              <StatTile
+                label={t("diagnostics.tile.institutionsActive")}
+                value={data.counts.institutionsActive}
+              />
+              <StatTile
+                label={t("diagnostics.tile.users")}
+                value={data.counts.users}
+                href="/admin/users"
+              />
+              <StatTile
+                label={t("diagnostics.tile.students")}
+                value={data.counts.students}
+                href="/institution/students"
+              />
+              <StatTile
+                label={t("diagnostics.tile.programmes")}
+                value={data.counts.programmes}
+                href="/institution/programmes"
+              />
+              <StatTile
+                label={t("diagnostics.tile.subjects")}
+                value={data.counts.subjects}
+              />
+              <StatTile
+                label={t("diagnostics.tile.gradeSessions")}
+                value={data.counts.gradeSessions}
+                href="/institution/grades"
+              />
+              <StatTile
+                label={t("diagnostics.tile.gradeCells")}
+                value={data.counts.grades}
+              />
+              <StatTile
+                label={t("diagnostics.tile.diplomas")}
+                value={data.counts.diplomas}
+                href="/institution/diplomas"
+              />
+              <StatTile
+                label={t("diagnostics.tile.enrollments")}
+                value={data.counts.enrollments}
+              />
+              <StatTile
+                label={t("diagnostics.tile.transcriptCodes")}
+                value={data.counts.transcriptRecords}
+              />
+              <StatTile
+                label={t("diagnostics.tile.auditLogs")}
+                value={data.counts.auditLogs}
+                href="/admin/audit"
+              />
             </div>
           </section>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="font-medium text-slate-900 mb-3">Diplomas by status</h2>
+              <h2 className="font-medium text-slate-900 mb-3">
+                {t("diagnostics.diplomasByStatus")}
+              </h2>
               <dl className="grid grid-cols-2 gap-3 text-sm">
                 {Object.entries(data.breakdown.diplomasByStatus).map(([status, count]) => (
                   <div key={status} className="flex justify-between gap-2 border-b border-slate-50 pb-2">
@@ -305,7 +384,9 @@ export default function DiagnosticsPage() {
             </section>
 
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="font-medium text-slate-900 mb-3">Grade sessions by status</h2>
+              <h2 className="font-medium text-slate-900 mb-3">
+                {t("diagnostics.sessionsByStatus")}
+              </h2>
               <dl className="grid grid-cols-2 gap-3 text-sm">
                 {Object.entries(data.breakdown.gradeSessionsByStatus).map(
                   ([status, count]) => (
@@ -325,7 +406,9 @@ export default function DiagnosticsPage() {
           </div>
 
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="font-medium text-slate-900 mb-3">Users by role</h2>
+            <h2 className="font-medium text-slate-900 mb-3">
+              {t("diagnostics.usersByRole")}
+            </h2>
             <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm max-w-lg">
               {Object.entries(data.breakdown.usersByRole).map(([role, count]) => (
                 <div key={role} className="flex justify-between gap-2">
@@ -337,14 +420,18 @@ export default function DiagnosticsPage() {
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="font-medium text-slate-900 mb-3">Recent activity</h2>
+            <h2 className="font-medium text-slate-900 mb-3">
+              {t("diagnostics.recentActivity")}
+            </h2>
             <dl className="grid gap-3 text-sm sm:grid-cols-2 mb-4">
               <div>
-                <dt className="text-slate-500">Last audit event</dt>
+                <dt className="text-slate-500">
+                  {t("diagnostics.lastAuditEvent")}
+                </dt>
                 <dd className="text-slate-900 mt-0.5">
                   {data.activity.lastAuditAt
                     ? new Date(data.activity.lastAuditAt).toLocaleString()
-                    : "—"}
+                    : t("common.dash")}
                 </dd>
                 {data.activity.lastAuditAction ? (
                   <dd className="mt-1">
@@ -353,21 +440,27 @@ export default function DiagnosticsPage() {
                 ) : null}
               </div>
               <div>
-                <dt className="text-slate-500">Last submitted grade session</dt>
+                <dt className="text-slate-500">
+                  {t("diagnostics.lastSubmittedSession")}
+                </dt>
                 <dd className="text-slate-900 mt-0.5">
                   {data.activity.lastSubmittedGradeSessionAt
                     ? new Date(data.activity.lastSubmittedGradeSessionAt).toLocaleString()
-                    : "—"}
+                    : t("common.dash")}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">Audit events (24 h)</dt>
+                <dt className="text-slate-500">
+                  {t("diagnostics.auditLast24h")}
+                </dt>
                 <dd className="text-lg font-semibold mt-0.5">{data.activity.auditLast24h}</dd>
               </div>
             </dl>
             {data.activity.topAuditActions.length > 0 ? (
               <>
-                <p className="text-xs text-slate-500 mb-2">Top actions (all time)</p>
+                <p className="text-xs text-slate-500 mb-2">
+                  {t("diagnostics.topActions")}
+                </p>
                 <ul className="flex flex-wrap gap-2">
                   {data.activity.topAuditActions.map((a) => (
                     <li
@@ -386,16 +479,18 @@ export default function DiagnosticsPage() {
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="font-medium text-slate-900 mb-3">Public URLs & integrations</h2>
+            <h2 className="font-medium text-slate-900 mb-3">
+              {t("diagnostics.publicUrls")}
+            </h2>
             <ul className="space-y-3 text-sm">
               {[
-                { label: "Management app", url: data.services.managementPublicUrl },
-                { label: "QR verify base", url: data.services.qrVerifyBaseUrl },
-                { label: "Keycloak issuer", url: data.services.keycloakIssuer },
-                { label: "Keycloak admin", url: data.services.keycloakAdminUrl },
-                { label: "Verify widget", url: data.services.widgetPublicUrl },
-                { label: "TYPO3 site", url: data.services.typo3BaseUrl },
-                { label: "MinIO public", url: data.services.minioPublicUrl },
+                { label: t("diagnostics.url.management"), url: data.services.managementPublicUrl },
+                { label: t("diagnostics.url.qrVerify"), url: data.services.qrVerifyBaseUrl },
+                { label: t("diagnostics.url.keycloakIssuer"), url: data.services.keycloakIssuer },
+                { label: t("diagnostics.url.keycloakAdmin"), url: data.services.keycloakAdminUrl },
+                { label: t("diagnostics.url.widget"), url: data.services.widgetPublicUrl },
+                { label: t("diagnostics.url.typo3"), url: data.services.typo3BaseUrl },
+                { label: t("diagnostics.url.minio"), url: data.services.minioPublicUrl },
               ].map((item) => (
                 <li
                   key={item.label}
@@ -403,7 +498,7 @@ export default function DiagnosticsPage() {
                 >
                   <span className="text-slate-600 shrink-0">{item.label}</span>
                   <span className="font-mono text-xs text-slate-800 break-all text-right">
-                    {item.url ?? "—"}
+                    {item.url ?? t("common.dash")}
                   </span>
                   {item.url ? (
                     <span className="flex gap-2 w-full sm:w-auto sm:ml-auto">
@@ -413,14 +508,14 @@ export default function DiagnosticsPage() {
                         rel="noopener noreferrer"
                         className="text-renis-primary text-xs hover:underline"
                       >
-                        Open ↗
+                        {t("common.open")}
                       </a>
                       <button
                         type="button"
                         className="text-slate-500 text-xs hover:underline"
                         onClick={() => void copyUrl(item.url!)}
                       >
-                        Copy
+                        {t("common.copy")}
                       </button>
                     </span>
                   ) : null}
@@ -429,7 +524,8 @@ export default function DiagnosticsPage() {
             </ul>
             {data.services.smtpHost ? (
               <p className="mt-3 text-xs text-slate-500">
-                SMTP: <span className="font-mono">{data.services.smtpHost}</span>
+                {t("diagnostics.smtp")}:{" "}
+                <span className="font-mono">{data.services.smtpHost}</span>
               </p>
             ) : null}
           </section>

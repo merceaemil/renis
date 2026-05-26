@@ -4,7 +4,7 @@ import { DiplomaStatus } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { buildDiplomaPdfBuffer } from "@/lib/diploma-pdf";
 import { institutionWhere } from "@/lib/scope";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 import { prisma } from "@renis/database";
 
 export async function OPTIONS() {
@@ -37,7 +37,7 @@ export async function GET(
     },
   });
   if (!diploma) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
 
   try {

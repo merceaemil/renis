@@ -9,7 +9,7 @@ import {
 import { canConfigureInstitutionSettings } from "@renis/core/permissions";
 import { prisma, UserRole } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const classificationSchema = z.object({
   min: z.number().min(0).max(20),
@@ -48,7 +48,7 @@ export async function GET(
 
   const institution = await prisma.institution.findUnique({ where: { id } });
   if (!institution) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
 
   const branding = await resolveInstitutionBrandingUrls(institution);
@@ -89,19 +89,19 @@ export async function PATCH(
         NextResponse.json({ error: e.errors[0]?.message ?? "Invalid payload" }, { status: 400 })
       );
     }
-    return withCors(NextResponse.json({ error: "Invalid payload" }, { status: 400 }));
+    return withCors(apiError("api.error.invalidPayload", 400));
   }
 
   const sorted = [...body.gradeClassifications].sort((a, b) => a.min - b.min);
   for (let i = 0; i < sorted.length; i++) {
     if (sorted[i]!.min > sorted[i]!.max) {
       return withCors(
-        NextResponse.json({ error: "Each band must have min ≤ max." }, { status: 400 })
+        apiError("api.classifications.invalidBand", 400)
       );
     }
     if (i > 0 && sorted[i]!.min <= sorted[i - 1]!.max) {
       return withCors(
-        NextResponse.json({ error: "Classification bands must not overlap." }, { status: 400 })
+        apiError("api.classifications.overlappingBands", 400)
       );
     }
   }

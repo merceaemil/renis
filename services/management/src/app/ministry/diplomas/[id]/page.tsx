@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { apiFetch } from "@/lib/api";
 import { downloadWithAuth } from "@/lib/download";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type DiplomaDetail = {
   diploma: {
@@ -40,6 +41,7 @@ export default function MinistryDiplomaPage() {
   const { id } = useParams<{ id: string }>();
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
   const [detail, setDetail] = useState<DiplomaDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export default function MinistryDiplomaPage() {
       setError(null);
       const res = await apiFetch(`/api/ministry/diplomas/${id}`, { accessToken });
       if (!res.ok) {
-        setError("Could not load diploma");
+        setError(t("ministry.diploma.couldNotLoad"));
         setLoading(false);
         return;
       }
@@ -89,12 +91,12 @@ export default function MinistryDiplomaPage() {
     setFlagging(false);
     if (!res.ok) {
       const data = await res.json();
-      setError(data.error ?? "Could not send flag");
+      setError(data.error ?? t("ministry.diploma.flagFailed"));
       return;
     }
     setFlagMessage("");
     setFlagOpen(false);
-    setMessage("Flag sent to the institution.");
+    setMessage(t("ministry.diploma.flagSent"));
     await load(session.accessToken);
   }
 
@@ -108,24 +110,24 @@ export default function MinistryDiplomaPage() {
         true
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Preview failed");
+      setError(e instanceof Error ? e.message : t("ministry.diploma.previewFailed"));
     }
   }
 
   if (loading) {
     return (
-      <AppShell title="Diploma audit">
-        <p className="text-slate-500 py-8">Loading…</p>
+      <AppShell title={t("ministry.diploma.title")}>
+        <p className="text-slate-500 py-8">{t("common.loading")}</p>
       </AppShell>
     );
   }
 
   if (!detail) {
     return (
-      <AppShell title="Diploma audit">
-        <Alert variant="error">{error ?? "Diploma not found"}</Alert>
+      <AppShell title={t("ministry.diploma.title")}>
+        <Alert variant="error">{error ?? t("ministry.diploma.notFound")}</Alert>
         <Link href="/ministry" className="text-sm text-renis-primary hover:underline">
-          ← Ministry overview
+          ← {t("ministry.title")}
         </Link>
       </AppShell>
     );
@@ -140,7 +142,7 @@ export default function MinistryDiplomaPage() {
     <AppShell title={`${d.institution.name} — ${d.title}`}>
       <div className="mb-4">
         <Link href="/ministry" className="text-sm text-renis-primary hover:underline">
-          ← Ministry overview
+          ← {t("ministry.title")}
         </Link>
       </div>
 
@@ -148,24 +150,26 @@ export default function MinistryDiplomaPage() {
         description={
           <span className="inline-flex flex-wrap items-center gap-2">
             <StatusBadge status={d.status} />
-            <span>{d.institution.code} · read-only audit</span>
+            <span>
+              {d.institution.code} · {t("ministry.readOnlyAudit")}
+            </span>
           </span>
         }
         actions={
           <>
             {canPreview && (
               <button type="button" className="renis-btn-secondary" onClick={() => void previewPdf()}>
-                Preview PDF
+                {t("diplomas.previewPdf")}
               </button>
             )}
             {verifyHref && (
               <Link href={verifyHref} target="_blank" className="renis-btn-secondary">
-                Public verify page
+                {t("diplomas.openVerify")}
               </Link>
             )}
             {canFlag && (
               <button type="button" className="renis-btn-primary" onClick={() => setFlagOpen(true)}>
-                Flag anomaly
+                {t("ministry.diploma.flagAnomaly")}
               </button>
             )}
           </>
@@ -182,12 +186,12 @@ export default function MinistryDiplomaPage() {
       <Modal
         open={flagOpen}
         onClose={() => setFlagOpen(false)}
-        title="Flag anomaly"
-        description="Describe the issue for the institution (minimum 10 characters)."
+        title={t("ministry.diploma.flagAnomaly")}
+        description={t("ministry.diploma.flagDescription")}
         footer={
           <div className="flex justify-end gap-2">
             <button type="button" className="renis-btn-secondary" onClick={() => setFlagOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
@@ -195,7 +199,7 @@ export default function MinistryDiplomaPage() {
               disabled={flagging || flagMessage.trim().length < 10}
               className="renis-btn-primary disabled:opacity-50"
             >
-              {flagging ? "Sending…" : "Send flag"}
+              {flagging ? t("ministry.diploma.sending") : t("ministry.diploma.sendFlag")}
             </button>
           </div>
         }
@@ -206,7 +210,7 @@ export default function MinistryDiplomaPage() {
             minLength={10}
             rows={4}
             className="renis-input w-full"
-            placeholder="Describe the issue…"
+            placeholder={t("ministry.diploma.issuePlaceholder")}
             value={flagMessage}
             onChange={(e) => setFlagMessage(e.target.value)}
           />
@@ -214,10 +218,12 @@ export default function MinistryDiplomaPage() {
       </Modal>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-sm font-medium text-slate-500 mb-4">Diploma record</h2>
+        <h2 className="text-sm font-medium text-slate-500 mb-4">
+          {t("ministry.diploma.record")}
+        </h2>
         <dl className="grid gap-4 text-sm sm:grid-cols-2">
           <div>
-            <dt className="text-slate-500">Student</dt>
+            <dt className="text-slate-500">{t("ministry.col.student")}</dt>
             <dd className="font-medium text-slate-900 mt-0.5">
               {d.student.lastName}, {d.student.firstName}
             </dd>
@@ -226,39 +232,39 @@ export default function MinistryDiplomaPage() {
             </dd>
           </div>
           <div>
-            <dt className="text-slate-500">Date of birth</dt>
+            <dt className="text-slate-500">{t("students.dob")}</dt>
             <dd className="text-slate-900 mt-0.5">
               {d.student.dateOfBirth
                 ? new Date(d.student.dateOfBirth).toLocaleDateString()
-                : "—"}
+                : t("common.dash")}
             </dd>
           </div>
           <div>
-            <dt className="text-slate-500">Type & title</dt>
+            <dt className="text-slate-500">{t("ministry.diploma.typeTitle")}</dt>
             <dd className="text-slate-900 mt-0.5">
               {d.type} · {d.title}
             </dd>
           </div>
           <div>
-            <dt className="text-slate-500">Graduation year</dt>
+            <dt className="text-slate-500">{t("diplomas.gradYear")}</dt>
             <dd className="text-slate-900 mt-0.5">{d.graduationYear}</dd>
           </div>
           {d.honors ? (
             <div>
-              <dt className="text-slate-500">Honors</dt>
+              <dt className="text-slate-500">{t("ministry.diploma.honors")}</dt>
               <dd className="text-slate-900 mt-0.5">{d.honors}</dd>
             </div>
           ) : null}
           {d.uniqueCode ? (
             <div className="sm:col-span-2">
-              <dt className="text-slate-500">Verification code</dt>
+              <dt className="text-slate-500">{t("diplomas.verificationCode")}</dt>
               <dd className="mt-0.5 flex flex-wrap items-center gap-3">
                 <code className="rounded bg-slate-100 px-2 py-1 text-xs font-mono">
                   {d.uniqueCode}
                 </code>
                 {verifyHref ? (
                   <Link href={verifyHref} target="_blank" className="text-renis-primary text-sm hover:underline">
-                    Open verify page ↗
+                    {t("diplomas.openVerify")} ↗
                   </Link>
                 ) : null}
               </dd>
@@ -266,7 +272,7 @@ export default function MinistryDiplomaPage() {
           ) : null}
           {d.submittedAt ? (
             <div>
-              <dt className="text-slate-500">Submitted</dt>
+              <dt className="text-slate-500">{t("ministry.col.submitted")}</dt>
               <dd className="text-slate-900 mt-0.5">
                 {new Date(d.submittedAt).toLocaleString()}
               </dd>
@@ -274,15 +280,17 @@ export default function MinistryDiplomaPage() {
           ) : null}
           {d.publishedAt ? (
             <div>
-              <dt className="text-slate-500">Published</dt>
+              <dt className="text-slate-500">{t("ministry.diploma.published")}</dt>
               <dd className="text-slate-900 mt-0.5">
                 {new Date(d.publishedAt).toLocaleString()}
               </dd>
             </div>
           ) : null}
           <div>
-            <dt className="text-slate-500">Archived PDF</dt>
-            <dd className="text-slate-900 mt-0.5">{d.hasPdf ? "Yes" : "No"}</dd>
+            <dt className="text-slate-500">{t("ministry.diploma.archivedPdf")}</dt>
+            <dd className="text-slate-900 mt-0.5">
+              {d.hasPdf ? t("common.yes") : t("common.no")}
+            </dd>
           </div>
         </dl>
       </div>
@@ -294,7 +302,7 @@ export default function MinistryDiplomaPage() {
             className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
             onClick={() => setFlagsOpen((o) => !o)}
           >
-            Previous ministry flags ({detail.ministryFlags.length})
+            {t("ministry.diploma.previousFlags", { count: detail.ministryFlags.length })}
             <span className="text-slate-400">{flagsOpen ? "▾" : "▸"}</span>
           </button>
           {flagsOpen && (
@@ -305,7 +313,7 @@ export default function MinistryDiplomaPage() {
                   className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
                 >
                   <span className="text-xs text-slate-500">
-                    {new Date(f.at).toLocaleString()} — {f.actorEmail ?? "—"}
+                    {new Date(f.at).toLocaleString()} — {f.actorEmail ?? t("common.dash")}
                   </span>
                   <p className="mt-1 text-slate-800">{f.message}</p>
                 </li>

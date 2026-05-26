@@ -5,7 +5,7 @@ import { canManageGrades } from "@renis/core/permissions";
 import { GradeStatus, prisma } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { institutionWhere } from "@/lib/scope";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const upsertSchema = z.object({
   grades: z.array(
@@ -38,11 +38,11 @@ export async function PUT(
     where: { id: sessionId, ...scope },
   });
   if (!session) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
   if (session.status !== GradeStatus.DRAFT) {
     return withCors(
-      NextResponse.json({ error: "Session is not editable." }, { status: 409 })
+      apiError("api.gradeSessions.notEditable", 409)
     );
   }
 
@@ -50,7 +50,7 @@ export async function PUT(
   try {
     body = upsertSchema.parse(await req.json());
   } catch {
-    return withCors(NextResponse.json({ error: "Invalid payload" }, { status: 400 }));
+    return withCors(apiError("api.error.invalidPayload", 400));
   }
 
   const subjectIds = [...new Set(body.grades.map((g) => g.subjectId))];
@@ -67,7 +67,7 @@ export async function PUT(
 
   if (subjects.length !== subjectIds.length || students.length !== studentIds.length) {
     return withCors(
-      NextResponse.json({ error: "Invalid student or subject." }, { status: 400 })
+      apiError("api.gradeSessions.invalidStudentOrSubject", 400)
     );
   }
 

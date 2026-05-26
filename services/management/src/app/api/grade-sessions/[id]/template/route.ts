@@ -5,7 +5,7 @@ import { GradeStatus } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { loadGradeSessionGrid } from "@/lib/grade-session-grid";
 import { institutionWhere, sessionInstitutionFilter } from "@/lib/scope";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 export async function OPTIONS() {
   return corsOptions();
@@ -25,11 +25,11 @@ export async function GET(
 
   const grid = await loadGradeSessionGrid(id, sessionInstitutionFilter(user));
   if (!grid) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
   if (grid.session.status !== GradeStatus.DRAFT) {
     return withCors(
-      NextResponse.json({ error: "Session is not editable." }, { status: 409 })
+      apiError("api.gradeSessions.notEditable", 409)
     );
   }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useId, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type ModalProps = {
   open: boolean;
@@ -25,6 +26,7 @@ export function Modal({
   size = "md",
 }: ModalProps) {
   const titleId = useId();
+  const t = useT();
 
   useEffect(() => {
     if (!open) return;
@@ -47,7 +49,7 @@ export function Modal({
       <button
         type="button"
         className="absolute inset-0 bg-slate-900/50 backdrop-blur-[1px]"
-        aria-label="Close dialog"
+        aria-label={t("common.closeDialog")}
         onClick={onClose}
       />
       <div
@@ -70,7 +72,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-            aria-label="Close"
+            aria-label={t("common.close")}
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />

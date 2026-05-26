@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiFetch } from "@/lib/api";
 import { downloadWithAuth } from "@/lib/download";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type Subject = { id: string; code: string; name: string };
 type StudentRow = {
@@ -61,6 +62,7 @@ export default function MinistrySessionPage() {
   const { id } = useParams<{ id: string }>();
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +84,7 @@ export default function MinistrySessionPage() {
         accessToken,
       });
       if (!res.ok) {
-        setError("Could not load session");
+        setError(t("grades.session.couldNotLoad"));
         setLoading(false);
         return;
       }
@@ -115,12 +117,12 @@ export default function MinistrySessionPage() {
     setFlagging(false);
     if (!res.ok) {
       const data = await res.json();
-      setError(data.error ?? "Could not send flag");
+      setError(data.error ?? t("ministry.diploma.flagFailed"));
       return;
     }
     setFlagMessage("");
     setFlagOpen(false);
-    setMessage("Flag sent to the institution.");
+    setMessage(t("ministry.diploma.flagSent"));
     await load(session.accessToken);
   }
 
@@ -133,7 +135,7 @@ export default function MinistrySessionPage() {
         "national-grades-audit.csv"
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Export failed");
+      setError(e instanceof Error ? e.message : t("ministry.exportFailed"));
     }
   }
 
@@ -161,18 +163,18 @@ export default function MinistrySessionPage() {
 
   if (loading) {
     return (
-      <AppShell title="Session audit">
-        <p className="text-slate-500 py-8">Loading…</p>
+      <AppShell title={t("ministry.session.title")}>
+        <p className="text-slate-500 py-8">{t("common.loading")}</p>
       </AppShell>
     );
   }
 
   if (!detail) {
     return (
-      <AppShell title="Session audit">
-        <Alert variant="error">{error ?? "Session not found"}</Alert>
+      <AppShell title={t("ministry.session.title")}>
+        <Alert variant="error">{error ?? t("grades.session.notFound")}</Alert>
         <Link href="/ministry" className="text-sm text-renis-primary hover:underline">
-          ← Ministry overview
+          ← {t("ministry.title")}
         </Link>
       </AppShell>
     );
@@ -185,20 +187,25 @@ export default function MinistrySessionPage() {
     <AppShell title={title}>
       <div className="mb-4">
         <Link href="/ministry" className="text-sm text-renis-primary hover:underline">
-          ← Ministry overview
+          ← {t("ministry.title")}
         </Link>
       </div>
 
       <PageHeader
         description={
           <span className="inline-flex flex-wrap items-center gap-2">
-            <StatusBadge status="SUBMITTED" label="Submitted" />
+            <StatusBadge status="SUBMITTED" label={t("status.submitted")} />
             <span>
-              {gradeSession.academicYear} · {gradeSession.semester} · read-only audit
+              {gradeSession.academicYear} · {gradeSession.semester} ·{" "}
+              {t("ministry.readOnlyAudit")}
             </span>
             {stats ? (
               <span className="text-slate-500">
-                · {stats.studentCount} students · {stats.subjectCount} subjects
+                ·{" "}
+                {t("ministry.session.statsLine", {
+                  students: stats.studentCount,
+                  subjects: stats.subjectCount,
+                })}
               </span>
             ) : null}
           </span>
@@ -210,14 +217,14 @@ export default function MinistrySessionPage() {
               className="renis-btn-secondary"
               onClick={() => void exportNational()}
             >
-              Export all sessions (CSV)
+              {t("ministry.session.exportAll")}
             </button>
             <button
               type="button"
               className="renis-btn-primary"
               onClick={() => setFlagOpen(true)}
             >
-              Flag anomaly
+              {t("ministry.diploma.flagAnomaly")}
             </button>
           </>
         }
@@ -232,7 +239,9 @@ export default function MinistrySessionPage() {
 
       {anomalies.length > 0 ? (
         <Alert variant="warning">
-          <p className="font-medium mb-2">Auto-detected anomalies ({anomalies.length})</p>
+          <p className="font-medium mb-2">
+            {t("ministry.session.anomaliesDetected", { count: anomalies.length })}
+          </p>
           <ul className="list-disc list-inside space-y-1">
             {anomalies.map((a) => (
               <li key={`${a.code}-${a.message}`}>{a.message}</li>
@@ -240,18 +249,18 @@ export default function MinistrySessionPage() {
           </ul>
         </Alert>
       ) : (
-        <Alert variant="info">No auto-detected anomalies in this session.</Alert>
+        <Alert variant="info">{t("ministry.session.noAnomalies")}</Alert>
       )}
 
       <Modal
         open={flagOpen}
         onClose={() => setFlagOpen(false)}
-        title="Flag anomaly"
-        description="Describe the issue for the institution (minimum 10 characters)."
+        title={t("ministry.diploma.flagAnomaly")}
+        description={t("ministry.diploma.flagDescription")}
         footer={
           <div className="flex justify-end gap-2">
             <button type="button" className="renis-btn-secondary" onClick={() => setFlagOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
@@ -259,7 +268,7 @@ export default function MinistrySessionPage() {
               disabled={flagging || flagMessage.trim().length < 10}
               className="renis-btn-primary disabled:opacity-50"
             >
-              {flagging ? "Sending…" : "Send flag"}
+              {flagging ? t("ministry.diploma.sending") : t("ministry.diploma.sendFlag")}
             </button>
           </div>
         }
@@ -270,7 +279,7 @@ export default function MinistrySessionPage() {
             minLength={10}
             rows={4}
             className="renis-input w-full"
-            placeholder="Describe the issue…"
+            placeholder={t("ministry.diploma.issuePlaceholder")}
             value={flagMessage}
             onChange={(e) => setFlagMessage(e.target.value)}
           />
@@ -280,30 +289,30 @@ export default function MinistrySessionPage() {
       <Modal
         open={!!studentDetail}
         onClose={() => setStudentDetail(null)}
-        title={studentDetail ? studentLabel(studentDetail) : "Student"}
+        title={studentDetail ? studentLabel(studentDetail) : t("ministry.session.studentTitle")}
         description={studentDetail?.student.studentIdNumber}
         size="lg"
         footer={
           <button type="button" className="renis-btn-secondary" onClick={() => setStudentDetail(null)}>
-            Close
+            {t("common.close")}
           </button>
         }
       >
         {studentDetail ? (
           <div className="space-y-4">
             <p className="text-sm">
-              <span className="text-slate-500">Semester average:</span>{" "}
+              <span className="text-slate-500">{t("grades.semesterAverage")}:</span>{" "}
               <strong className="tabular-nums">
                 {studentDetail.semesterAverage !== null
                   ? studentDetail.semesterAverage.toFixed(2)
-                  : "—"}
+                  : t("common.dash")}
               </strong>
             </p>
             <table className="w-full text-sm">
               <thead className="text-left text-slate-500 border-b border-slate-100">
                 <tr>
-                  <th className="py-2 pr-3">Subject</th>
-                  <th className="py-2 text-right">Grade</th>
+                  <th className="py-2 pr-3">{t("grades.subject")}</th>
+                  <th className="py-2 text-right">{t("grades.grade")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -316,7 +325,7 @@ export default function MinistrySessionPage() {
                         {sub.name}
                       </td>
                       <td className="py-2 text-right font-medium tabular-nums">
-                        {g?.gradeObtained ?? "—"}
+                        {g?.gradeObtained ?? t("common.dash")}
                       </td>
                     </tr>
                   );
@@ -334,7 +343,7 @@ export default function MinistrySessionPage() {
             className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-slate-800 hover:bg-slate-50"
             onClick={() => setFlagsOpen((o) => !o)}
           >
-            Previous ministry flags ({ministryFlags.length})
+            {t("ministry.diploma.previousFlags", { count: ministryFlags.length })}
             <span className="text-slate-400">{flagsOpen ? "▾" : "▸"}</span>
           </button>
           {flagsOpen && (
@@ -345,7 +354,7 @@ export default function MinistrySessionPage() {
                   className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
                 >
                   <span className="text-xs text-slate-500">
-                    {new Date(f.at).toLocaleString()} — {f.actorEmail ?? "—"}
+                    {new Date(f.at).toLocaleString()} — {f.actorEmail ?? t("common.dash")}
                   </span>
                   <p className="mt-1 text-slate-800">{f.message}</p>
                 </li>
@@ -358,26 +367,29 @@ export default function MinistrySessionPage() {
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <input
           type="search"
-          placeholder="Filter students…"
+          placeholder={t("ministry.session.filterStudents")}
           className="renis-input max-w-xs"
           value={studentSearch}
           onChange={(e) => setStudentSearch(e.target.value)}
         />
         {studentSearch.trim() ? (
           <span className="text-sm text-slate-500">
-            {filteredTotal} of {detail.students.length}
+            {t("ministry.session.filterCount", {
+              count: filteredTotal,
+              total: detail.students.length,
+            })}
           </span>
         ) : null}
-        <span className="text-xs text-slate-500">Click a row for student details</span>
+        <span className="text-xs text-slate-500">{t("ministry.session.rowHint")}</span>
       </div>
 
       {detail.students.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-          No grade rows in this session.
+          {t("ministry.session.noGradeRows")}
         </div>
       ) : filteredStudents.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-          No students match your search.
+          {t("ministry.session.noStudentMatch")}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -385,7 +397,7 @@ export default function MinistrySessionPage() {
             <thead className="bg-slate-50 text-left text-slate-600">
               <tr>
                 <th className="px-2 py-2 sticky left-0 z-10 bg-slate-50 font-medium">
-                  Student
+                  {t("ministry.col.student")}
                 </th>
                 {detail.subjects.map((s) => (
                   <th
@@ -396,7 +408,7 @@ export default function MinistrySessionPage() {
                     {s.code}
                   </th>
                 ))}
-                <th className="px-2 py-2 font-medium">Avg</th>
+                <th className="px-2 py-2 font-medium">{t("ministry.col.avg")}</th>
                 <th className="px-2 py-2 w-10" />
               </tr>
             </thead>
@@ -418,20 +430,20 @@ export default function MinistrySessionPage() {
                   </td>
                   {row.grades.map((g, j) => (
                     <td key={j} className="px-2 py-2 tabular-nums text-slate-700">
-                      {g.gradeObtained ?? "—"}
+                      {g.gradeObtained ?? t("common.dash")}
                     </td>
                   ))}
                   <td className="px-2 py-2 font-medium tabular-nums">
                     {row.semesterAverage !== null
                       ? row.semesterAverage.toFixed(2)
-                      : "—"}
+                      : t("common.dash")}
                   </td>
                   <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                     <RowMenu
-                      label={`Actions for ${row.student.studentIdNumber}`}
+                      label={t("ministry.session.actionsLabel", { id: row.student.studentIdNumber })}
                       items={[
                         {
-                          label: "View student",
+                          label: t("ministry.session.viewStudent"),
                           onClick: () => setStudentDetail(row),
                         },
                       ]}

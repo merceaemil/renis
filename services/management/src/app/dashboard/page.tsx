@@ -12,67 +12,79 @@ import {
   canViewMinistryDashboard,
 } from "@renis/core/permissions";
 import { AppShell } from "@/components/AppShell";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import type { TranslationKey } from "@/lib/i18n";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
+  const t = useT();
   const role = session?.user?.role;
 
-  const cards: { href: string; title: string; description: string; show: boolean }[] =
-    [
-      {
-        href: "/admin/users",
-        title: "User accounts",
-        description: "Create and manage administrator accounts (Keycloak + RENIS).",
-        show: canAccessUserManagement(role),
-      },
-      {
-        href: "/admin/institutions",
-        title: "Institutions",
-        description: "Register universities and higher education institutions.",
-        show: canManageInstitutions(role),
-      },
-      {
-        href: "/ministry",
-        title: "Ministry overview",
-        description: "Read-only national view of submitted grades and published diplomas.",
-        show: canViewMinistryDashboard(role),
-      },
-      {
-        href: "/institution/students",
-        title: "Students",
-        description: "Manage students (all institutions for Super Admin).",
-        show: canManageStudents(role),
-      },
-      {
-        href: "/institution/grades",
-        title: "Grades & transcripts",
-        description: "Grade sessions and transcripts across institutions you can access.",
-        show: canManageGrades(role),
-      },
-      {
-        href: "/institution/programmes",
-        title: "Programmes",
-        description: "Study programmes and subjects for grade sessions.",
-        show: canManageGrades(role),
-      },
-      {
-        href: "/institution/diplomas",
-        title: "Diplomas",
-        description: "Diploma workflow and public verification codes.",
-        show: canManageDiplomas(role),
-      },
-    ];
+  const cards: {
+    href: string;
+    titleKey: TranslationKey;
+    descKey: TranslationKey;
+    show: boolean;
+  }[] = [
+    {
+      href: "/admin/users",
+      titleKey: "nav.userAccounts",
+      descKey: "dashboard.card.users.description",
+      show: canAccessUserManagement(role),
+    },
+    {
+      href: "/admin/institutions",
+      titleKey: "nav.institutions",
+      descKey: "dashboard.card.institutions.description",
+      show: canManageInstitutions(role),
+    },
+    {
+      href: "/ministry",
+      titleKey: "nav.ministryOverview",
+      descKey: "dashboard.card.ministry.description",
+      show: canViewMinistryDashboard(role),
+    },
+    {
+      href: "/institution/students",
+      titleKey: "nav.students",
+      descKey: "dashboard.card.students.description",
+      show: canManageStudents(role),
+    },
+    {
+      href: "/institution/grades",
+      titleKey: "nav.gradesTranscripts",
+      descKey: "dashboard.card.grades.description",
+      show: canManageGrades(role),
+    },
+    {
+      href: "/institution/programmes",
+      titleKey: "nav.programmes",
+      descKey: "dashboard.card.programmes.description",
+      show: canManageGrades(role),
+    },
+    {
+      href: "/institution/diplomas",
+      titleKey: "nav.diplomas",
+      descKey: "dashboard.card.diplomas.description",
+      show: canManageDiplomas(role),
+    },
+  ];
+
+  const roleWelcomeKey: TranslationKey | null =
+    role === UserRole.SUPER_ADMIN
+      ? "dashboard.welcome.SUPER_ADMIN"
+      : role === UserRole.MINISTRY_ADMIN
+      ? "dashboard.welcome.MINISTRY_ADMIN"
+      : role === UserRole.INSTITUTION_ADMIN
+      ? "dashboard.welcome.INSTITUTION_ADMIN"
+      : null;
 
   return (
-    <AppShell title="Dashboard">
+    <AppShell title={t("dashboard.title")}>
       <p className="text-slate-600 mb-6">
-        Welcome{session?.user?.email ? `, ${session.user.email}` : ""}.
-        {role === UserRole.SUPER_ADMIN &&
-          " You have full access across all institutions and ministry views."}
-        {role === UserRole.MINISTRY_ADMIN &&
-          " You have read-only access across all institutions."}
-        {role === UserRole.INSTITUTION_ADMIN &&
-          " You manage data for your institution only."}
+        {t("dashboard.welcome")}
+        {session?.user?.email ? `, ${session.user.email}` : ""}.
+        {roleWelcomeKey ? ` ${t(roleWelcomeKey)}` : ""}
       </p>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {cards
@@ -83,8 +95,10 @@ export default function DashboardPage() {
               href={card.href}
               className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover:border-renis-primary transition-colors"
             >
-              <h2 className="font-semibold text-renis-primary">{card.title}</h2>
-              <p className="mt-2 text-sm text-slate-600">{card.description}</p>
+              <h2 className="font-semibold text-renis-primary">
+                {t(card.titleKey)}
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">{t(card.descKey)}</p>
             </Link>
           ))}
       </div>

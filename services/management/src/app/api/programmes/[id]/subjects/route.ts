@@ -5,7 +5,7 @@ import { canManageGrades } from "@renis/core/permissions";
 import { prisma, Semester } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { institutionWhere } from "@/lib/scope";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const subjectSchema = z.object({
   name: z.string().min(1),
@@ -36,14 +36,14 @@ export async function POST(
     where: { id: programmeId, ...scope, active: true },
   });
   if (!programme) {
-    return withCors(NextResponse.json({ error: "Not found" }, { status: 404 }));
+    return withCors(apiError("api.error.notFound", 404));
   }
 
   let body: z.infer<typeof subjectSchema>;
   try {
     body = subjectSchema.parse(await req.json());
   } catch {
-    return withCors(NextResponse.json({ error: "Invalid payload" }, { status: 400 }));
+    return withCors(apiError("api.error.invalidPayload", 400));
   }
 
   const created = await prisma.subject.create({

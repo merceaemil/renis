@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import type { GradeClassification } from "@renis/core/grade-classifications";
 import { apiFetch } from "@/lib/api";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import type { TranslationKey } from "@/lib/i18n";
 
 type Settings = {
   id: string;
@@ -36,12 +38,22 @@ export function InstitutionSettingsForm({
   accessToken: string;
   backHref: string;
 }) {
+  const t = useT();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [bands, setBands] = useState<GradeClassification[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<string | null>(null);
+
+  const assetLabelKey: Record<
+    "logo" | "signature-institution" | "signature-ministry",
+    TranslationKey
+  > = {
+    logo: "settings.asset.logo",
+    "signature-institution": "settings.asset.signatureInstitution",
+    "signature-ministry": "settings.asset.signatureMinistry",
+  };
 
   useEffect(() => {
     void (async () => {
@@ -50,7 +62,7 @@ export function InstitutionSettingsForm({
         accessToken,
       });
       if (!res.ok) {
-        setError("Could not load settings");
+        setError(t("settings.couldNotLoad"));
         setLoading(false);
         return;
       }
@@ -72,11 +84,11 @@ export function InstitutionSettingsForm({
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Save failed");
+      setError(data.error ?? t("settings.saveFailed"));
       return;
     }
     setBands(data.gradeClassifications);
-    setMessage("Grade classifications saved.");
+    setMessage(t("settings.classificationsSaved"));
   }
 
   async function uploadAsset(
@@ -96,10 +108,10 @@ export function InstitutionSettingsForm({
     const data = await res.json();
     setUploading(null);
     if (!res.ok) {
-      setError(data.error ?? "Upload failed");
+      setError(data.error ?? t("settings.uploadFailed"));
       return;
     }
-    setMessage(`${asset} uploaded.`);
+    setMessage(t("settings.uploaded", { asset: t(assetLabelKey[asset]) }));
     const preview = ASSET_PREVIEW[asset];
     setSettings((prev) =>
       prev
@@ -125,14 +137,15 @@ export function InstitutionSettingsForm({
     if (settings) setBands([...settings.defaults]);
   }
 
-  if (loading) return <p className="text-slate-500">Loading…</p>;
-  if (!settings) return <p className="text-red-700">{error ?? "Not found"}</p>;
+  if (loading) return <p className="text-slate-500">{t("common.loading")}</p>;
+  if (!settings)
+    return <p className="text-red-700">{error ?? t("common.notFound")}</p>;
 
   return (
     <div className="space-y-8 max-w-3xl">
       <p className="text-sm text-slate-600">
         <a href={backHref} className="text-renis-primary hover:underline">
-          ← Back
+          {t("common.back")}
         </a>
         {" · "}
         <strong>{settings.name}</strong> ({settings.code})
@@ -150,18 +163,21 @@ export function InstitutionSettingsForm({
       )}
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="font-medium text-slate-900 mb-2">Logos & signatures (§5.3)</h2>
+        <h2 className="font-medium text-slate-900 mb-2">
+          {t("settings.brandingHeading")}
+        </h2>
         <p className="text-sm text-slate-600 mb-4">
-          PNG or JPEG, max 2 MB. Used on diploma PDF preview and publish.
+          {t("settings.brandingHelp")}
         </p>
         <div className="grid gap-4 md:grid-cols-3 text-sm">
           {(
             [
-              ["logo", "Institution logo"],
-              ["signature-institution", "Institution signature"],
-              ["signature-ministry", "Ministry representative"],
+              "logo",
+              "signature-institution",
+              "signature-ministry",
             ] as const
-          ).map(([asset, label]) => {
+          ).map((asset) => {
+            const label = t(assetLabelKey[asset]);
             const previewUrl = settings[ASSET_PREVIEW[asset].urlKey];
             const tall = ASSET_PREVIEW[asset].tall;
             return (
@@ -184,7 +200,7 @@ export function InstitutionSettingsForm({
                     />
                   ) : (
                     <span className="text-xs text-slate-400 px-2 text-center">
-                      No image uploaded
+                      {t("settings.noImage")}
                     </span>
                   )}
                 </div>
@@ -200,18 +216,22 @@ export function InstitutionSettingsForm({
                   }}
                 />
                 {uploading === asset ? (
-                  <span className="text-slate-500">Uploading…</span>
+                  <span className="text-slate-500">
+                    {t("settings.uploading")}
+                  </span>
                 ) : previewUrl ? (
-                  <span className="text-xs text-slate-500">Click to replace</span>
+                  <span className="text-xs text-slate-500">
+                    {t("settings.clickToReplace")}
+                  </span>
                 ) : null}
               </label>
             );
           })}
         </div>
         <p className="text-xs text-slate-500 mt-3">
-          National Ministry coat-of-arms can be set via{" "}
-          <code className="bg-slate-100 px-1 rounded">MINISTRY_LOGO_OBJECT_KEY</code>{" "}
-          in server env (MinIO path).
+          {t("settings.ministryHint", {
+            var: "MINISTRY_LOGO_OBJECT_KEY",
+          })}
         </p>
       </section>
 
@@ -220,17 +240,19 @@ export function InstitutionSettingsForm({
         className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
       >
         <div className="flex flex-wrap justify-between gap-2 mb-4">
-          <h2 className="font-medium text-slate-900">Grade classifications (§4.3)</h2>
+          <h2 className="font-medium text-slate-900">
+            {t("settings.classificationsHeading")}
+          </h2>
           <button
             type="button"
             onClick={resetDefaults}
             className="text-sm text-renis-primary hover:underline"
           >
-            Reset to defaults
+            {t("settings.resetDefaults")}
           </button>
         </div>
         <p className="text-sm text-slate-600 mb-4">
-          Bands on the 0–20 scale. Applied on transcript PDFs (not stored in the database).
+          {t("settings.classificationsHelp")}
         </p>
         <div className="space-y-2 mb-4">
           {bands.map((b, i) => (
@@ -276,16 +298,21 @@ export function InstitutionSettingsForm({
         <button
           type="button"
           className="text-sm text-slate-600 hover:underline mb-4"
-          onClick={() => setBands([...bands, { min: 0, max: 20, label: "New band" }])}
+          onClick={() =>
+            setBands([
+              ...bands,
+              { min: 0, max: 20, label: t("settings.newBand") },
+            ])
+          }
         >
-          + Add band
+          {t("settings.addBand")}
         </button>
         <div>
           <button
             type="submit"
             className="rounded-lg bg-renis-primary px-4 py-2 text-sm text-white hover:opacity-90"
           >
-            Save classifications
+            {t("settings.saveClassifications")}
           </button>
         </div>
       </form>

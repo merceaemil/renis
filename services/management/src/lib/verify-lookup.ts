@@ -1,4 +1,4 @@
-import { logAudit } from "@renis/core";
+import { logAudit, tApi, type Locale } from "@renis/core";
 import { DiplomaStatus, GradeStatus, prisma } from "@renis/database";
 
 export type VerifyLookupResult =
@@ -46,13 +46,14 @@ function holderDisplayName(student: {
 
 export async function lookupVerification(
   rawCode: string,
-  options?: { ip?: string; audit?: boolean }
+  options?: { ip?: string; audit?: boolean; locale?: Locale }
 ): Promise<VerifyLookupResult> {
+  const locale = options?.locale ?? "en";
   const code = rawCode.trim();
   if (!code) {
     return {
       status: "UNKNOWN",
-      message: "Please enter a verification code.",
+      message: tApi("api.verify.empty", locale),
     };
   }
 
@@ -88,7 +89,7 @@ export async function lookupVerification(
     if (transcript.gradeSession.status !== GradeStatus.SUBMITTED) {
       return {
         status: "UNKNOWN",
-        message: "No transcript matches this code. Please check your entry.",
+        message: tApi("api.verify.unknownTranscript", locale),
       };
     }
 
@@ -126,7 +127,7 @@ export async function lookupVerification(
   if (!diploma) {
     return {
       status: "UNKNOWN",
-      message: "No diploma or transcript matches this code. Please check your entry.",
+      message: tApi("api.verify.unknownAny", locale),
     };
   }
 
@@ -141,7 +142,7 @@ export async function lookupVerification(
   if (diploma.status !== DiplomaStatus.PUBLISHED) {
     return {
       status: "UNKNOWN",
-      message: "No diploma matches this code. Please check your entry.",
+      message: tApi("api.verify.unknownDiploma", locale),
     };
   }
 

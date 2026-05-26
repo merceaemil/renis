@@ -14,12 +14,14 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { apiFetch } from "@/lib/api";
 import { listApiUrl, normalizeListResponse } from "@/lib/list-response";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type Institution = { id: string; code: string; name: string; active: boolean };
 
 export default function InstitutionsPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [detailTarget, setDetailTarget] = useState<Institution | null>(null);
@@ -37,7 +39,7 @@ export default function InstitutionsPage() {
       const res = await apiFetch(listApiUrl("/api/institutions", page, pageSize), {
         accessToken: session.accessToken,
       });
-      if (!res.ok) throw new Error("Could not load institutions");
+      if (!res.ok) throw new Error(t("institutions.couldNotLoad"));
       return normalizeListResponse<Institution>(await res.json());
     },
     [session?.accessToken]
@@ -68,7 +70,7 @@ export default function InstitutionsPage() {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Create failed");
+      setError(data.error ?? t("institutions.createFailed"));
       return;
     }
     setCreateOpen(false);
@@ -77,16 +79,16 @@ export default function InstitutionsPage() {
   }
 
   return (
-    <AppShell title="Institutions">
+    <AppShell title={t("institutions.title")}>
       <PageHeader
-        description="Phase 1 covers universities and higher education institutions recognised by the Ministry."
+        description={t("institutions.description")}
         actions={
           <button
             type="button"
             className="renis-btn-primary"
             onClick={() => setCreateOpen(true)}
           >
-            Add institution
+            {t("institutions.add")}
           </button>
         }
       />
@@ -100,7 +102,7 @@ export default function InstitutionsPage() {
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Add institution"
+        title={t("institutions.addTitle")}
         footer={
           <div className="flex justify-end gap-2">
             <button
@@ -108,33 +110,33 @@ export default function InstitutionsPage() {
               className="renis-btn-secondary"
               onClick={() => setCreateOpen(false)}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button type="submit" form="institution-create-form" className="renis-btn-primary">
-              Create
+              {t("institutions.create")}
             </button>
           </div>
         }
       >
         <form id="institution-create-form" className="space-y-4" onSubmit={handleCreate}>
           <label className="block text-sm">
-            <span className="text-slate-600">Code</span>
+            <span className="text-slate-600">{t("institutions.field.code")}</span>
             <input
               required
               value={form.code}
               onChange={(e) => setForm({ ...form, code: e.target.value })}
               className="renis-input mt-1"
-              placeholder="UB"
+              placeholder={t("institutions.codePlaceholder")}
             />
           </label>
           <label className="block text-sm">
-            <span className="text-slate-600">Name</span>
+            <span className="text-slate-600">{t("institutions.field.name")}</span>
             <input
               required
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="renis-input mt-1"
-              placeholder="University of Burundi"
+              placeholder={t("institutions.namePlaceholder")}
             />
           </label>
         </form>
@@ -143,8 +145,12 @@ export default function InstitutionsPage() {
       <Modal
         open={!!detailTarget}
         onClose={() => setDetailTarget(null)}
-        title={detailTarget?.name ?? "Institution"}
-        description={detailTarget ? `Code: ${detailTarget.code}` : undefined}
+        title={detailTarget?.name ?? t("nav.institutions")}
+        description={
+          detailTarget
+            ? `${t("institutions.codeLabel")} ${detailTarget.code}`
+            : undefined
+        }
         footer={
           detailTarget ? (
             <div className="flex justify-end gap-2">
@@ -153,7 +159,7 @@ export default function InstitutionsPage() {
                 className="renis-btn-secondary"
                 onClick={() => setDetailTarget(null)}
               >
-                Close
+                {t("common.close")}
               </button>
               <button
                 type="button"
@@ -162,7 +168,7 @@ export default function InstitutionsPage() {
                   router.push(`/admin/institutions/${detailTarget.id}/settings`)
                 }
               >
-                Open settings
+                {t("institutions.openSettings")}
               </button>
             </div>
           ) : null
@@ -171,15 +177,14 @@ export default function InstitutionsPage() {
         {detailTarget ? (
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-slate-500">Code</dt>
+              <dt className="text-slate-500">{t("institutions.field.code")}</dt>
               <dd className="font-mono text-slate-900">{detailTarget.code}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Status</dt>
+              <dt className="text-slate-500">{t("institutions.field.status")}</dt>
               <dd>
                 <StatusBadge
                   status={detailTarget.active ? "ACTIVE" : "INACTIVE"}
-                  label={detailTarget.active ? "Active" : "Inactive"}
                 />
               </dd>
             </div>
@@ -188,10 +193,10 @@ export default function InstitutionsPage() {
       </Modal>
 
       {loading ? (
-        <p className="text-slate-500 py-8">Loading…</p>
+        <p className="text-slate-500 py-8">{t("common.loading")}</p>
       ) : total === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-          No institutions yet. Add one to get started.
+          {t("institutions.empty")}
         </div>
       ) : (
         <PaginatedTable
@@ -205,9 +210,15 @@ export default function InstitutionsPage() {
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-600">
               <tr>
-                <th className="px-4 py-3 font-medium">Code</th>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">
+                  {t("institutions.field.code")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("institutions.field.name")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("institutions.field.status")}
+                </th>
                 <th className="px-4 py-3 w-12" />
               </tr>
             </thead>
@@ -221,21 +232,18 @@ export default function InstitutionsPage() {
                   <td className="px-4 py-3 font-mono text-xs">{i.code}</td>
                   <td className="px-4 py-3 font-medium text-slate-900">{i.name}</td>
                   <td className="px-4 py-3">
-                    <StatusBadge
-                      status={i.active ? "ACTIVE" : "INACTIVE"}
-                      label={i.active ? "Active" : "Inactive"}
-                    />
+                    <StatusBadge status={i.active ? "ACTIVE" : "INACTIVE"} />
                   </td>
                   <td className="px-4 py-3">
                     <RowMenu
-                      label={`Actions for ${i.code}`}
+                      label={t("common.actionsFor", { target: i.code })}
                       items={[
                         {
-                          label: "View details",
+                          label: t("common.viewDetails"),
                           onClick: () => setDetailTarget(i),
                         },
                         {
-                          label: "Settings",
+                          label: t("institutions.settings"),
                           onClick: () =>
                             router.push(`/admin/institutions/${i.id}/settings`),
                         },

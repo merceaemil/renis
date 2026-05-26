@@ -1,3 +1,7 @@
+"use client";
+
+import { useT } from "@/lib/i18n/LocaleProvider";
+
 type AlertProps = {
   variant: "error" | "success" | "info" | "warning";
   children: React.ReactNode;
@@ -12,6 +16,7 @@ const styles = {
 };
 
 export function Alert({ variant, children, onDismiss }: AlertProps) {
+  const t = useT();
   return (
     <div
       className={`mb-4 flex gap-3 rounded-lg border px-4 py-3 text-sm ${styles[variant]}`}
@@ -23,7 +28,7 @@ export function Alert({ variant, children, onDismiss }: AlertProps) {
           type="button"
           onClick={onDismiss}
           className="shrink-0 opacity-70 hover:opacity-100"
-          aria-label="Dismiss"
+          aria-label={t("common.dismiss")}
         >
           ×
         </button>

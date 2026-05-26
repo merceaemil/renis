@@ -6,7 +6,7 @@ import { DiplomaStatus, prisma } from "@renis/database";
 import { corsOptions, withCors } from "@/lib/cors";
 import { institutionListWhere, resolveInstitutionId } from "@/lib/scope";
 import { paginatedQuery } from "@/lib/prisma-pagination";
-import { forbidden, getApiUser, unauthorized } from "@/lib/session";
+import { apiError, forbidden, getApiUser, unauthorized } from "@/lib/session";
 
 const DIPLOMA_TYPES = ["BACHELOR", "MASTER", "DOCTORATE", "CERTIFICATE", "LICENCE"] as const;
 
@@ -60,24 +60,19 @@ export async function POST(req: NextRequest) {
   try {
     body = createSchema.parse(await req.json());
   } catch {
-    return withCors(NextResponse.json({ error: "Invalid payload" }, { status: 400 }));
+    return withCors(apiError("api.error.invalidPayload", 400));
   }
 
   const institutionId = resolveInstitutionId(user, body.institutionId);
   if (!institutionId) {
-    return withCors(
-      NextResponse.json(
-        { error: "institutionId is required for this action." },
-        { status: 400 }
-      )
-    );
+    return withCors(apiError("api.error.institutionIdRequired", 400));
   }
 
   const student = await prisma.student.findFirst({
     where: { id: body.studentId, institutionId, active: true },
   });
   if (!student) {
-    return withCors(NextResponse.json({ error: "Student not found" }, { status: 404 }));
+    return withCors(apiError("api.students.notFound", 404));
   }
 
   const enrollment = await prisma.programmeEnrollment.findFirst({
