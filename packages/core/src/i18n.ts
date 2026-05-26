@@ -9,7 +9,12 @@
 
 export const SUPPORTED_LOCALES = ["en", "fr"] as const;
 export type Locale = (typeof SUPPORTED_LOCALES)[number];
-export const DEFAULT_LOCALE: Locale = "en";
+/**
+ * Locale used when the user has not chosen one yet (no cookie / localStorage /
+ * Accept-Language match) and as the missing-key fallback for `translate()`.
+ * Catalogs are maintained in sync for every key, so French is safe as both.
+ */
+export const DEFAULT_LOCALE: Locale = "fr";
 
 export function isLocale(value: unknown): value is Locale {
   return (

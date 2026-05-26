@@ -138,7 +138,7 @@ Then sign out of Keycloak and retry TYPO3 login (old tokens still lack `openid`)
 
 ## Multi-language (English + French)
 
-The realm is configured for `internationalizationEnabled=true` with `supportedLocales=["en","fr"]` and `defaultLocale=en`. The `renis` login and email themes ship `messages_en.properties` and `messages_fr.properties`.
+The realm is configured for `internationalizationEnabled=true` with `supportedLocales=["en","fr"]` and `defaultLocale=fr` (platform-wide default). The `renis` login and email themes ship `messages_en.properties` and `messages_fr.properties`.
 
 | Where | Mechanism |
 |-------|-----------|
@@ -153,7 +153,7 @@ Override via env (read by `configure-realm-scopes.sh`):
 ```env
 KEYCLOAK_I18N_ENABLED=true
 KEYCLOAK_I18N_SUPPORTED_LOCALES=en,fr
-KEYCLOAK_I18N_DEFAULT_LOCALE=en
+KEYCLOAK_I18N_DEFAULT_LOCALE=fr
 ```
 
 To add a new language `xx`:

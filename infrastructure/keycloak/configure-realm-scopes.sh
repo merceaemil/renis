@@ -16,7 +16,7 @@ EMAIL_THEME="${KEYCLOAK_EMAIL_THEME:-renis}"
 # Internationalization — also re-applied on existing realms (English + French).
 I18N_ENABLED="${KEYCLOAK_I18N_ENABLED:-true}"
 I18N_SUPPORTED_LOCALES="${KEYCLOAK_I18N_SUPPORTED_LOCALES:-en,fr}"
-I18N_DEFAULT_LOCALE="${KEYCLOAK_I18N_DEFAULT_LOCALE:-en}"
+I18N_DEFAULT_LOCALE="${KEYCLOAK_I18N_DEFAULT_LOCALE:-fr}"
 
 KCADM=/opt/keycloak/bin/kcadm.sh
 

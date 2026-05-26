@@ -1,5 +1,5 @@
 import type { Catalog, Locale } from "./i18n";
-import { translate } from "./i18n";
+import { DEFAULT_LOCALE, translate } from "./i18n";
 
 /**
  * Catalog for strings emitted by HTTP responses (errors, verification result
@@ -179,7 +179,7 @@ export const apiMessages: Catalog = {
 
 export function tApi(
   key: string,
-  locale: Locale = "en",
+  locale: Locale = DEFAULT_LOCALE,
   vars?: Record<string, string | number>
 ): string {
   return translate(apiMessages, key, locale, vars);

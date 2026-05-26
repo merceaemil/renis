@@ -7,7 +7,8 @@
 
 export const SUPPORTED_LOCALES = ["en", "fr"] as const;
 export type WidgetLocale = (typeof SUPPORTED_LOCALES)[number];
-export const DEFAULT_LOCALE: WidgetLocale = "en";
+/** Default to French — matches the platform-wide default. */
+export const DEFAULT_LOCALE: WidgetLocale = "fr";
 
 function isLocale(value: unknown): value is WidgetLocale {
   return (

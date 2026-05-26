@@ -12,7 +12,7 @@
   "emailTheme": "renis",
   "internationalizationEnabled": true,
   "supportedLocales": ["en", "fr"],
-  "defaultLocale": "en",
+  "defaultLocale": "fr",
   "smtpServer": {
     "host": "mailhog",
     "port": "1025",
