@@ -23,14 +23,22 @@ export async function resolveBrandingUrls(institution: {
   };
 }
 
-export async function buildDiplomaPdfBuffer(diplomaId: string) {
+export async function buildDiplomaPdfBuffer(
+  diplomaId: string,
+  options: { forcePublished?: boolean } = {}
+) {
   const diploma = await prisma.diploma.findUnique({
     where: { id: diplomaId },
     include: { institution: true, student: true },
   });
   if (!diploma) throw new Error("Diploma not found");
 
-  const isPreview = diploma.status !== DiplomaStatus.PUBLISHED;
+  // During publish, the DB row is still SUBMITTED when we render — without
+  // forcePublished the rendered PDF would carry the "preview" watermark and
+  // that watermarked buffer is what gets stored in MinIO as the published PDF.
+  const isPreview = options.forcePublished
+    ? false
+    : diploma.status !== DiplomaStatus.PUBLISHED;
   const hasRealCode = !!diploma.uniqueCode;
 
   if (

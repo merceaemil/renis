@@ -12,6 +12,11 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build -w @renis/database
 ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time.
+ARG NEXT_PUBLIC_KEYCLOAK_ISSUER
+ARG NEXT_PUBLIC_KEYCLOAK_CLIENT_ID
+ENV NEXT_PUBLIC_KEYCLOAK_ISSUER=$NEXT_PUBLIC_KEYCLOAK_ISSUER
+ENV NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=$NEXT_PUBLIC_KEYCLOAK_CLIENT_ID
 RUN npm run build -w @renis/management
 
 FROM node:22-alpine AS runner

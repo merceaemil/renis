@@ -49,10 +49,12 @@
       "publicClient": false,
       "secret": "change-me-in-production",
       "redirectUris": [
+        "https://management.renis.local/*",
         "http://localhost:3000/*",
         "http://management:3000/*"
       ],
       "webOrigins": [
+        "https://management.renis.local",
         "http://localhost:3000",
         "http://management:3000"
       ],
@@ -60,7 +62,7 @@
       "directAccessGrantsEnabled": true,
       "protocol": "openid-connect",
       "attributes": {
-        "post.logout.redirect.uris": "http://localhost:3000/*##http://management:3000/*"
+        "post.logout.redirect.uris": "https://management.renis.local/*##https://renis.local/*##http://localhost:3000/*##http://management:3000/*"
       }
     },
     {
@@ -70,12 +72,15 @@
       "publicClient": false,
       "secret": "change-me-typo3-secret",
       "redirectUris": [
+        "https://renis.local/*",
+        "https://renis.local/typo3/*",
         "http://localhost:8082/*",
         "http://localhost:8082/typo3/*",
         "http://typo3/*",
         "http://typo3/typo3/*"
       ],
       "webOrigins": [
+        "https://renis.local",
         "http://localhost:8082",
         "http://typo3"
       ],

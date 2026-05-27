@@ -37,8 +37,14 @@ $internalIssuer = rtrim(
 $clientId = (string) (getenv('KEYCLOAK_TYPO3_CLIENT_ID') ?: 'renis-typo3');
 $clientSecret = (string) (getenv('KEYCLOAK_TYPO3_CLIENT_SECRET') ?: '');
 
-// OAuth redirect: Keycloak on :8080, TYPO3 on :8082 — cookies must be Lax (not Strict).
+// OAuth across subdomains (auth.renis.local → renis.local): Lax (not Strict).
 $GLOBALS['TYPO3_CONF_VARS']['BE']['cookieSameSite'] = 'lax';
+
+// Trust Traefik's X-Forwarded-* so TYPO3 builds https://renis.local/... URLs.
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['reverseProxyIP'] = '*';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['reverseProxySSL'] = '*';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['reverseProxyHeaderMultiValue'] = 'last';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = '.*';
 
 if ($issuer !== '' && $clientId !== '') {
     $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['oauth2_client'] = [
@@ -69,6 +75,23 @@ if (isset($GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['backend']['loginProviders'][$o
     $GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['backend']['loginProviders'][$oauthProviderId]['sorting'] = 100;
 }
 PHP
+
+# Sync the site config base URL from TYPO3_BASE_URL so URL generation matches
+# what Traefik exposes (the YAML file is owned by www-data and not always editable
+# from the host filesystem in dev).
+SITE_CONFIG=/var/www/html/config/sites/main/config.yaml
+SITE_BASE="${TYPO3_BASE_URL:-https://renis.local}"
+case "$SITE_BASE" in
+  */) ;;
+  *)  SITE_BASE="${SITE_BASE}/" ;;
+esac
+if [ -f "$SITE_CONFIG" ]; then
+  if ! grep -q "^base: '${SITE_BASE}'" "$SITE_CONFIG"; then
+    echo "TYPO3: updating site base to ${SITE_BASE}"
+    sed -i.bak -E "s|^base: '.*'|base: '${SITE_BASE}'|" "$SITE_CONFIG" || true
+    rm -f "${SITE_CONFIG}.bak"
+  fi
+fi
 
 chown -R www-data:www-data /var/www/html
 chmod -R ug+rwx /var/www/html/var /var/www/html/config /var/www/html/public

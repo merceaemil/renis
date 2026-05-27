@@ -1,9 +1,27 @@
 import { NextResponse } from "next/server";
 
-const origin = process.env.CORS_ORIGIN ?? "http://localhost:3000";
+// Multiple origins are useful in dev: TYPO3 (renis.local) and the widget
+// demo (widget.renis.local) both call management.renis.local/api/*.
+const allowedOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:3000")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
-function applyCors(response: NextResponse): NextResponse {
-  response.headers.set("Access-Control-Allow-Origin", origin);
+const isWildcard = allowedOrigins.includes("*");
+const fallbackOrigin = allowedOrigins[0] ?? "*";
+
+function applyCors(
+  response: NextResponse,
+  requestOrigin?: string | null
+): NextResponse {
+  const allow =
+    isWildcard
+      ? "*"
+      : requestOrigin && allowedOrigins.includes(requestOrigin)
+        ? requestOrigin
+        : fallbackOrigin;
+  response.headers.set("Access-Control-Allow-Origin", allow);
+  response.headers.set("Vary", "Origin");
   response.headers.append(
     "Access-Control-Allow-Headers",
     "Content-Type, Accept-Language, Authorization"

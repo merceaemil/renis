@@ -1,4 +1,19 @@
 services:
+  traefik:
+    image: traefik:v3.1
+    restart: unless-stopped
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8081:8080" # Traefik dashboard (dev only)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./infrastructure/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./infrastructure/traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./infrastructure/traefik/certs:/etc/traefik/certs:ro
+
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
@@ -29,21 +44,26 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       KC_HTTP_ENABLED: "true"
-      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_BASE_URL:-https://auth.renis.local}
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_BACKCHANNEL: "false"
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_PROXY_HEADERS: xforwarded
       KC_HEALTH_ENABLED: "true"
     volumes:
       - ./infrastructure/keycloak/realm-renis.json:/opt/keycloak/data/import/realm-renis.json:ro
       - ./infrastructure/keycloak/themes/renis:/opt/keycloak/themes/renis:ro
-    ports:
-      - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
       mailhog:
         condition: service_started
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.keycloak.rule: "Host(`auth.renis.local`)"
+      traefik.http.routers.keycloak.entrypoints: "websecure"
+      traefik.http.routers.keycloak.tls: "true"
+      traefik.http.services.keycloak.loadbalancer.server.port: "8080"
 
   # Keycloak realm import omits the openid client scope; TYPO3 userinfo needs it (KC #16168).
   keycloak-config:
@@ -68,11 +88,18 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL:-https://data.renis.local}
     volumes:
       - minio_data:/data
     ports:
       - "9000:9000"
       - "9002:9001"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.minio.rule: "Host(`data.renis.local`)"
+      traefik.http.routers.minio.entrypoints: "websecure"
+      traefik.http.routers.minio.tls: "true"
+      traefik.http.services.minio.loadbalancer.server.port: "9000"
 
   minio-init:
     image: minio/mc:RELEASE.2025-04-16T18-13-26Z
@@ -110,22 +137,20 @@ services:
       TYPO3_DB_NAME: ${TYPO3_DB_NAME:-typo3}
       TYPO3_DB_USER: ${TYPO3_DB_USER:-typo3}
       TYPO3_DB_PASSWORD: ${TYPO3_DB_PASSWORD:-typo3_dev_password}
-      TYPO3_BASE_URL: ${TYPO3_BASE_URL:-http://localhost:8082}
+      TYPO3_BASE_URL: ${TYPO3_BASE_URL:-https://renis.local}
       PHP_DISPLAY_ERRORS: "1"
-      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://localhost:8080/realms/renis}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.renis.local/realms/renis}
       KEYCLOAK_INTERNAL_ISSUER: ${KEYCLOAK_INTERNAL_ISSUER:-http://keycloak:8080/realms/renis}
       KEYCLOAK_TYPO3_CLIENT_ID: ${KEYCLOAK_TYPO3_CLIENT_ID:-renis-typo3}
       KEYCLOAK_TYPO3_CLIENT_SECRET: ${KEYCLOAK_TYPO3_CLIENT_SECRET:-change-me-typo3-secret}
-      WIDGET_PUBLIC_URL: ${WIDGET_PUBLIC_URL:-http://localhost:3001}
-      MANAGEMENT_PUBLIC_URL: ${MANAGEMENT_PUBLIC_URL:-http://localhost:3000}
+      WIDGET_PUBLIC_URL: ${WIDGET_PUBLIC_URL:-https://widget.renis.local}
+      MANAGEMENT_PUBLIC_URL: ${MANAGEMENT_PUBLIC_URL:-https://management.renis.local}
       RENIS_DATABASE_URL: postgresql://${POSTGRES_USER:-renis}:${POSTGRES_PASSWORD:-renis_dev_password}@postgres:5432/${POSTGRES_DB:-renis}
     volumes:
       - ./services/typo3:/var/www/html
       - ./infrastructure/typo3/renis_verify:/opt/renis_verify:ro
       - ./infrastructure/typo3/docker-entrypoint.sh:/usr/local/bin/renis-typo3-entrypoint.sh:ro
       - ./infrastructure/typo3/container-finish-setup.sh:/usr/local/bin/renis-typo3-finish-setup.sh:ro
-    ports:
-      - "8082:80"
     depends_on:
       postgres:
         condition: service_healthy
@@ -133,24 +158,33 @@ services:
         condition: service_started
       keycloak-config:
         condition: service_completed_successfully
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.typo3.rule: "Host(`renis.local`)"
+      traefik.http.routers.typo3.entrypoints: "websecure"
+      traefik.http.routers.typo3.tls: "true"
+      traefik.http.services.typo3.loadbalancer.server.port: "80"
 
   management:
     build:
       context: .
       dockerfile: services/management/Dockerfile
+      args:
+        NEXT_PUBLIC_KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.renis.local/realms/renis}
+        NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-renis-management}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-renis}:${POSTGRES_PASSWORD:-renis_dev_password}@postgres:5432/${POSTGRES_DB:-renis}
-      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      AUTH_URL: ${AUTH_URL:-https://management.renis.local}
       AUTH_SECRET: ${AUTH_SECRET:-dev-renis-auth-secret-do-not-use-in-production}
       AUTH_TRUST_HOST: "true"
-      MANAGEMENT_PUBLIC_URL: ${MANAGEMENT_PUBLIC_URL:-http://localhost:3000}
-      NEXT_PUBLIC_KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://localhost:8080/realms/renis}
+      MANAGEMENT_PUBLIC_URL: ${MANAGEMENT_PUBLIC_URL:-https://management.renis.local}
+      NEXT_PUBLIC_KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.renis.local/realms/renis}
       NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-renis-management}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
-      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://localhost:8080/realms/renis}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://renis.local}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.renis.local/realms/renis}
       KEYCLOAK_INTERNAL_ISSUER: ${KEYCLOAK_INTERNAL_ISSUER:-http://keycloak:8080/realms/renis}
-      KEYCLOAK_ADMIN_URL: ${KEYCLOAK_ADMIN_URL:-http://localhost:8080}
+      KEYCLOAK_ADMIN_URL: ${KEYCLOAK_ADMIN_URL:-https://auth.renis.local}
       KEYCLOAK_ADMIN_INTERNAL_URL: ${KEYCLOAK_ADMIN_INTERNAL_URL:-http://keycloak:8080}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-renis}
       KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN_USER:-admin}
@@ -163,13 +197,11 @@ services:
       SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_FROM: ${SMTP_FROM:-noreply@renis.bi}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
-      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-http://localhost:9000}
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-https://data.renis.local}
       MINIO_BUCKET: ${MINIO_BUCKET:-renis-documents}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       PUPPETEER_EXECUTABLE_PATH: ${PUPPETEER_EXECUTABLE_PATH:-/usr/bin/chromium-browser}
-    ports:
-      - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -183,6 +215,13 @@ services:
         condition: service_started
       minio-init:
         condition: service_completed_successfully
+    labels:
+      traefik.enable: "true"
+      # `/api/*` and the UI live on the same Next.js app; one host rule is enough.
+      traefik.http.routers.management.rule: "Host(`management.renis.local`)"
+      traefik.http.routers.management.entrypoints: "websecure"
+      traefik.http.routers.management.tls: "true"
+      traefik.http.services.management.loadbalancer.server.port: "3000"
 
   widget:
     build:
@@ -190,9 +229,13 @@ services:
       dockerfile: services/widget/Dockerfile
     restart: unless-stopped
     environment:
-      RENIS_API_URL: ${MANAGEMENT_PUBLIC_URL:-http://localhost:3000}
-    ports:
-      - "3001:80"
+      RENIS_API_URL: ${MANAGEMENT_PUBLIC_URL:-https://management.renis.local}
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.widget.rule: "Host(`widget.renis.local`)"
+      traefik.http.routers.widget.entrypoints: "websecure"
+      traefik.http.routers.widget.tls: "true"
+      traefik.http.services.widget.loadbalancer.server.port: "80"
 
   db-migrate:
     build:

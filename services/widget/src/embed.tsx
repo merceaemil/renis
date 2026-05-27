@@ -18,7 +18,7 @@ function resolveApiUrl(container: HTMLElement): string {
   return (
     container.dataset.apiUrl ??
     script?.dataset.apiUrl ??
-    "http://localhost:3000"
+    "https://widget.renis.local"
   ).replace(/\/$/, "");
 }
 

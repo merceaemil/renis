@@ -3,7 +3,9 @@ import { DiplomaStatus, prisma } from "@renis/database";
 import { buildDiplomaPdfBuffer } from "@/lib/diploma-pdf";
 
 export async function publishDiplomaPdf(diplomaId: string) {
-  const { pdf, diploma } = await buildDiplomaPdfBuffer(diplomaId);
+  const { pdf, diploma } = await buildDiplomaPdfBuffer(diplomaId, {
+    forcePublished: true,
+  });
   if (!diploma.uniqueCode) {
     throw new Error("Diploma has no verification code");
   }
