@@ -1,7 +1,14 @@
+# Default certificate served when no other cert matches the SNI hostname.
+#
+# IMPORTANT: do NOT list the self-signed cert in a `tls.certificates:` array —
+# that adds it to Traefik's matching pool with the wildcard SAN
+# `*.renis.arxia.com`, which would match every host and stop ACME from ever
+# issuing a Let's Encrypt cert (the cert resolver only runs when no matching
+# cert exists for the SNI). `defaultCertificate` is a fallback only and is
+# not part of the matching pool, so ACME still triggers normally and the
+# self-signed cert is served only during issuance, on ACME failures, or for
+# local-dev hosts that bypass DNS.
 tls:
-  certificates:
-    - certFile: /etc/traefik/certs/renis.arxia.com.crt
-      keyFile: /etc/traefik/certs/renis.arxia.com.key
   stores:
     default:
       defaultCertificate:
