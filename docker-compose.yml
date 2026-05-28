@@ -2,19 +2,37 @@ services:
   traefik:
     image: traefik:v3.7
     restart: unless-stopped
-    # ACME resolver is declared as CLI flags (not env vars) because Traefik does
-    # not merge TRAEFIK_CERTIFICATESRESOLVERS_* into a static config loaded via
-    # --configFile — resolvers defined only via env vars are silently ignored
-    # and routers see "nonexistent certificate resolver letsencrypt" errors.
+    # All static configuration is passed as CLI flags. We intentionally do NOT
+    # use --configFile: Traefik v3 ignores CLI flags / env vars for sections
+    # already present in a static config file, so resolvers added on the
+    # command line are silently dropped and routers fail with
+    # "nonexistent certificate resolver letsencrypt". The dynamic file
+    # provider below still loads infrastructure/traefik/dynamic/*.yml.
     command:
-      - --configFile=/etc/traefik/traefik.yml
+      - --log.level=INFO
+      - --accesslog=true
+      - --api.dashboard=true
+      - --api.insecure=true # dashboard on :8081 — dev only
+      # Entrypoints (HTTP redirects to HTTPS; ACME HTTP-01 still works because
+      # Traefik handles /.well-known/acme-challenge/* before applying redirects)
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.web.http.redirections.entrypoint.permanent=false
+      - --entrypoints.websecure.address=:443
+      # Providers
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=renis_default
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      # Let's Encrypt ACME resolver (HTTP-01 challenge on the `web` entrypoint)
       - --certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL:-admin@renis.arxia.com}
       - --certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json
-      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
       - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
-      # Default is the production CA. Override LETSENCRYPT_CA_SERVER with
+      # Production CA by default. Set LETSENCRYPT_CA_SERVER to
       # https://acme-staging-v02.api.letsencrypt.org/directory while testing
-      # to avoid hitting the strict prod rate limits.
+      # to avoid the strict prod rate limits.
       - --certificatesresolvers.letsencrypt.acme.caserver=${LETSENCRYPT_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
     ports:
       - "80:80"
@@ -22,7 +40,6 @@ services:
       - "8081:8080" # Traefik dashboard (dev only)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./infrastructure/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./infrastructure/traefik/dynamic:/etc/traefik/dynamic:ro
       - ./infrastructure/traefik/certs:/etc/traefik/certs:ro
       - traefik_acme:/acme
