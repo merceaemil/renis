@@ -66,19 +66,32 @@ docker compose up -d
 
 #### Local development — self-signed wildcard
 
-If DNS cannot point at your machine (laptop / WSL behind NAT), use the
-self-signed cert. Traefik will still try Let's Encrypt first; when ACME
-fails it serves Traefik's built-in fake cert. Generate a self-signed
-wildcard for nicer browser warnings:
+If DNS cannot point at your machine (laptop / WSL behind NAT), Traefik
+cannot complete ACME and will serve its built-in fake cert
+(`CN=TRAEFIK DEFAULT CERT`), which trips every browser warning. To get a
+nicer self-signed wildcard instead, generate one and wire it in as the
+TLS default:
 
 ```bash
 sh infrastructure/traefik/generate-cert.sh
 ```
 
-The cert lives in `infrastructure/traefik/certs/renis.arxia.com.{crt,key}`
-(gitignored) and is loaded as the default cert by
-`infrastructure/traefik/dynamic/tls.yml`. Trust it in your OS / browser, or
-accept the warning each time. The script is idempotent.
+Then create `infrastructure/traefik/dynamic/tls.yml` with **only** a default
+cert (no `tls.certificates:` array — that would shadow ACME on a public
+host):
+
+```yaml
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /etc/traefik/certs/renis.arxia.com.crt
+        keyFile: /etc/traefik/certs/renis.arxia.com.key
+```
+
+`dynamic/tls.yml` is intentionally absent from git so the public-deployment
+default is "Let's Encrypt only" — adding it back is a local opt-in.
+Trust the cert in your OS / browser, or accept the warning each time.
 
 ---
 
