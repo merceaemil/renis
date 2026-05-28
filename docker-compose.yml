@@ -2,20 +2,20 @@ services:
   traefik:
     image: traefik:v3.7
     restart: unless-stopped
+    # ACME resolver is declared as CLI flags (not env vars) because Traefik does
+    # not merge TRAEFIK_CERTIFICATESRESOLVERS_* into a static config loaded via
+    # --configFile — resolvers defined only via env vars are silently ignored
+    # and routers see "nonexistent certificate resolver letsencrypt" errors.
     command:
       - --configFile=/etc/traefik/traefik.yml
-    environment:
-      # Let's Encrypt ACME resolver (HTTP-01 challenge on the `web` entrypoint).
-      # Requires DNS for *.renis.arxia.com to resolve to this host and ports
-      # 80/443 to be reachable from the public internet.
-      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL: ${LETSENCRYPT_EMAIL:-admin@renis.arxia.com}
-      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_STORAGE: /acme/acme.json
-      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_HTTPCHALLENGE: "true"
-      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_HTTPCHALLENGE_ENTRYPOINT: web
-      # Default is the production CA. Override with the staging CA while
-      # testing to avoid hitting the strict prod rate limits:
-      #   https://acme-staging-v02.api.letsencrypt.org/directory
-      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_CASERVER: ${LETSENCRYPT_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
+      - --certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL:-admin@renis.arxia.com}
+      - --certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      # Default is the production CA. Override LETSENCRYPT_CA_SERVER with
+      # https://acme-staging-v02.api.letsencrypt.org/directory while testing
+      # to avoid hitting the strict prod rate limits.
+      - --certificatesresolvers.letsencrypt.acme.caserver=${LETSENCRYPT_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
     ports:
       - "80:80"
       - "443:443"
