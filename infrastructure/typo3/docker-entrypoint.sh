@@ -37,10 +37,10 @@ $internalIssuer = rtrim(
 $clientId = (string) (getenv('KEYCLOAK_TYPO3_CLIENT_ID') ?: 'renis-typo3');
 $clientSecret = (string) (getenv('KEYCLOAK_TYPO3_CLIENT_SECRET') ?: '');
 
-// OAuth across subdomains (auth.renis.local → renis.local): Lax (not Strict).
+// OAuth across subdomains (auth.renis.arxia.com → renis.arxia.com): Lax (not Strict).
 $GLOBALS['TYPO3_CONF_VARS']['BE']['cookieSameSite'] = 'lax';
 
-// Trust Traefik's X-Forwarded-* so TYPO3 builds https://renis.local/... URLs.
+// Trust Traefik's X-Forwarded-* so TYPO3 builds https://renis.arxia.com/... URLs.
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['reverseProxyIP'] = '*';
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['reverseProxySSL'] = '*';
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['reverseProxyHeaderMultiValue'] = 'last';
@@ -80,7 +80,7 @@ PHP
 # what Traefik exposes (the YAML file is owned by www-data and not always editable
 # from the host filesystem in dev).
 SITE_CONFIG=/var/www/html/config/sites/main/config.yaml
-SITE_BASE="${TYPO3_BASE_URL:-https://renis.local}"
+SITE_BASE="${TYPO3_BASE_URL:-https://renis.arxia.com}"
 case "$SITE_BASE" in
   */) ;;
   *)  SITE_BASE="${SITE_BASE}/" ;;

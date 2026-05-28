@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-// Multiple origins are useful in dev: TYPO3 (renis.local) and the widget
-// demo (widget.renis.local) both call management.renis.local/api/*.
+// Multiple origins are useful in dev: TYPO3 (renis.arxia.com) and the widget
+// demo (widget.renis.arxia.com) both call management.renis.arxia.com/api/*.
 const allowedOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:3000")
   .split(",")
   .map((s) => s.trim())

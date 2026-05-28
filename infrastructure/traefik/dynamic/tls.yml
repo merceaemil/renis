@@ -1,9 +1,9 @@
 tls:
   certificates:
-    - certFile: /etc/traefik/certs/renis.local.crt
-      keyFile: /etc/traefik/certs/renis.local.key
+    - certFile: /etc/traefik/certs/renis.arxia.com.crt
+      keyFile: /etc/traefik/certs/renis.arxia.com.key
   stores:
     default:
       defaultCertificate:
-        certFile: /etc/traefik/certs/renis.local.crt
-        keyFile: /etc/traefik/certs/renis.local.key
+        certFile: /etc/traefik/certs/renis.arxia.com.crt
+        keyFile: /etc/traefik/certs/renis.arxia.com.key

@@ -18,7 +18,7 @@ function resolveApiUrl(container: HTMLElement): string {
   return (
     container.dataset.apiUrl ??
     script?.dataset.apiUrl ??
-    "https://widget.renis.local"
+    "https://widget.renis.arxia.com"
   ).replace(/\/$/, "");
 }
 
